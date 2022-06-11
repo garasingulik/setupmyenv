@@ -3,8 +3,10 @@ export DEBIAN_FRONTEND=noninteractive
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 export PROFILE_CONFIG=~/.profile
 
+echo "$1"
+
 # check if using zsh
-if  [ -z "$0" ] && [ "$0" == "/bin/zsh" ]; then
+if  [ -z "$1" ] && [ "$1" == "-zsh" ]; then
   export PROFILE_CONFIG=~/.zprofile
 fi
 

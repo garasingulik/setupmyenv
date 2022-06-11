@@ -10,5 +10,5 @@ Script to Setup Development Environment
 ## ZSH
 
 ```zsh
-/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/build-ubuntu.sh)"
+/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/build-ubuntu.sh) -zsh"
 ```
