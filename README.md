@@ -14,7 +14,7 @@ This repository contains scripts to setup my daily driver machine for software d
 Run this command on `bash` session:
 
 ```bash
-PROFILE_CONFIG=~/.profile /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
+ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
 ```
 
 ## ZSH
@@ -28,5 +28,5 @@ sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.
 Run this command on `zsh` session:
 
 ```zsh
-PROFILE_CONFIG=~/.zprofile /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
+ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
 ```
