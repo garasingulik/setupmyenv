@@ -1,2 +1,2 @@
-#!/bin/sh
+#!/bin/bash
 PROFILE_CONFIG=~/.profile sh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/build-ubuntu.sh)"

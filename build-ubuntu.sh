@@ -59,7 +59,7 @@ tools_install java $JAVA_VERSION
 tools_install flutter $FLUTTER_VERSION
 
 # plugin config
-if [ $1 == "-zsh" ]; then
+if [ "$PROFILE_CONFIG" == "~/.zprofile" ]; then
   echo -e ". ~/.asdf/plugins/java/set-java-home.zsh" >> $PROFILE_CONFIG
 else
   echo -e ". ~/.asdf/plugins/java/set-java-home.bash" >> $PROFILE_CONFIG
