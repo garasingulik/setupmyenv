@@ -2,8 +2,6 @@
 export DEBIAN_FRONTEND=noninteractive
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 
-echo "$PROFILE_CONFIG"
-
 # check if using zsh
 if [ "$PROFILE_CONFIG" == "$HOME/.zprofile" ]; then
   echo "Configuring for zsh ..."
@@ -98,3 +96,6 @@ source $PROFILE_CONFIG
 # android sdkmanager
 yes | sdkmanager --licenses
 sdkmanager --install "platform-tools" "platforms;android-30" "build-tools;32.0.0"
+
+# done
+echo "Please restart this terminal session to load the new configuration ..."
