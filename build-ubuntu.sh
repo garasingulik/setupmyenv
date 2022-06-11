@@ -30,7 +30,7 @@ function tools_install() {
 sudo apt update && sudo apt install -y lsb-core locales build-essential git curl make jq unzip \
   libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
   libxmlsec1-dev libffi-dev liblzma-dev apt-transport-https ca-certificates software-properties-common \
-  cmake ninja-build libgtk-3-dev
+  cmake ninja-build libgtk-3-dev clang
 
 # install open ssl 1.1.1 for backward compatibility (ubuntu:jammy)
 if [ $((UBUNTU_VERSION)) -gt 21 ]; then
