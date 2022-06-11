@@ -1,13 +1,14 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
-export PROFILE_CONFIG=~/.profile
 
-echo "$1"
+ echo "$PROFILE_CONFIG"
 
 # check if using zsh
-if  [ -z "$1" ] && [ "$1" == "-zsh" ]; then
-  export PROFILE_CONFIG=~/.zprofile
+if [ "$PROFILE_CONFIG" == "$HOME/.zprofile" ]; then
+  echo "Configuring for zsh ..."
+else
+  echo "Configuring for bash ..."
 fi
 
 # tooling version
@@ -67,7 +68,7 @@ tools_install java $JAVA_VERSION
 tools_install flutter $FLUTTER_VERSION
 
 # plugin config
-if [ "$PROFILE_CONFIG" == "~/.zprofile" ]; then
+if [ "$PROFILE_CONFIG" == "$HOME/.zprofile" ]; then
   echo -e ". ~/.asdf/plugins/java/set-java-home.zsh" >> $PROFILE_CONFIG
 else
   echo -e ". ~/.asdf/plugins/java/set-java-home.bash" >> $PROFILE_CONFIG
