@@ -1,5 +1,13 @@
 # Setup My Environment
-Script to Setup Development Environment
+
+This repository contains scripts to setup my daily driver machine for software development. Feel free to check the source code to understand what is this script is currently doing. In a nut shell:
+
+1. (Optional) install zsh
+2. Installing OS basic tools for development
+3. Install Homebrew
+4. Install asdf
+5. Install nodejs, python, golang, java and flutter with asdf
+6. Install Android SDK Command Line
 
 ## Bash
 
