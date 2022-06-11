@@ -27,7 +27,7 @@ function tools_install() {
 }
 
 # install base package
-sudo apt update && sudo apt install -y  lsb-core locales build-essential git curl zsh make jq unzip \
+sudo apt update && sudo apt install -y lsb-core locales build-essential git curl make jq unzip \
   libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
   libxmlsec1-dev libffi-dev liblzma-dev apt-transport-https ca-certificates software-properties-common \
   cmake ninja-build libgtk-3-dev
@@ -37,10 +37,6 @@ if [ $((UBUNTU_VERSION)) -gt 21 ]; then
     curl -o /tmp/libssl1.1_1.1.0l-1~deb9u6_amd64.deb http://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.0l-1~deb9u6_amd64.deb
     sudo apt install -y /tmp/libssl1.1_1.1.0l-1~deb9u6_amd64.deb
 fi
-
-# set shell
-chsh -s $(which zsh)
-sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
 
 # set locale
 localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
