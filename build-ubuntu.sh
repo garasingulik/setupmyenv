@@ -2,7 +2,7 @@
 export DEBIAN_FRONTEND=noninteractive
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 
- echo "$PROFILE_CONFIG"
+echo "$PROFILE_CONFIG"
 
 # check if using zsh
 if [ "$PROFILE_CONFIG" == "$HOME/.zprofile" ]; then
