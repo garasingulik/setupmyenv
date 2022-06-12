@@ -68,12 +68,13 @@ echo -e ". ~/.asdf/plugins/java/set-java-home.zsh" >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # android sdk and cli setup
-mkdir -p ~/Library/Android/sdk
+export ANDROID_HOME=$HOME/Library/Android/sdk
+mkdir -p $ANDROID_HOME
 curl -o cli-tools.zip $ANDROID_CLI
-unzip cli-tools.zip -d ~/Library/Android/sdk
-mv ~/Library/Android/sdk/cmdline-tools /Library/Android/sdk/latest
-mkdir -p /Library/Android/sdk/cmdline-tools
-mv ~/Library/Android/sdk/latest ~/Library/Android/sdk/cmdline-tools
+unzip cli-tools.zip -d $ANDROID_HOME
+mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
+mkdir -p $ANDROID_HOME/cmdline-tools
+mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
 rm -f cli-tools.zip
 
 # set android home path
