@@ -19,6 +19,8 @@ ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingul
 
 ## ZSH
 
+### Ubuntu
+
 Install `zsh` with `sudo apt install -y zsh` and then install [Oh My Zsh](https://ohmyz.sh/):
 
 ```
@@ -29,4 +31,12 @@ Run this command on `zsh` session:
 
 ```zsh
 ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
+```
+
+### macOS
+
+macOS uses `zsh` as default shell, run this command to setup:
+
+```zsh
+/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-macos.sh)"
 ```
