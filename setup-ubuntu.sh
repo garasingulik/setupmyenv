@@ -43,6 +43,12 @@ fi
 # set locale
 localedef -i en_US -c -f UTF-8 -A /usr/share/locale/locale.alias en_US.UTF-8
 
+# set gpg tty
+# if we sign git commit using gpg, this configuration will redirect password prompt to tty
+echo "" >> $PROFILE_CONFIG
+echo "# gpg" >> $PROFILE_CONFIG
+echo 'export GPG_TTY=$(tty)' >> $PROFILE_CONFIG
+
 # install homebrew
 NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 echo "" >> $PROFILE_CONFIG
