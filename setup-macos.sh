@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/zsh
 export PROFILE_CONFIG="$HOME/.zshrc"
 
 # tooling version
@@ -20,6 +20,12 @@ function tools_install() {
   asdf install $1 $2
   asdf global $1 $2
 }
+
+# set locale
+echo "" >> $PROFILE_CONFIG
+echo "# locale" >> $PROFILE_CONFIG
+echo "LC_ALL=en_US.UTF-8" >> $PROFILE_CONFIG
+echo "LANG=en_US.UTF-8" >> $PROFILE_CONFIG
 
 # set gpg tty
 # if we sign git commit using gpg, this configuration will redirect password prompt to tty
