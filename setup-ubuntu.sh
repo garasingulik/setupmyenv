@@ -1,6 +1,5 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 export PROFILE_CONFIG="$HOME/.bashrc"
 
 # check if using zsh
@@ -34,7 +33,8 @@ sudo apt update && sudo apt install -y lsb-core locales build-essential git curl
   libxmlsec1-dev libffi-dev liblzma-dev apt-transport-https ca-certificates software-properties-common \
   cmake ninja-build libgtk-3-dev clang
 
-# install open ssl 1.1.1 for backward compatibility (ubuntu:jammy)
+# install openssl 1.1.1 for backward compatibility (ubuntu:jammy)
+export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 if [ $((UBUNTU_VERSION)) -gt 21 ]; then
     curl -o /tmp/libssl1.1_1.1.0l-1~deb9u6_amd64.deb http://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.0l-1~deb9u6_amd64.deb
     sudo apt install -y /tmp/libssl1.1_1.1.0l-1~deb9u6_amd64.deb
