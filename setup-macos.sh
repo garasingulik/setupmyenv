@@ -33,7 +33,7 @@ echo "" >> $PROFILE_CONFIG
 echo "# gpg" >> $PROFILE_CONFIG
 echo 'export GPG_TTY=$(tty)' >> $PROFILE_CONFIG
 
-# install homebrew / linuxbrew (yeah that's right, homebrew is not only for macOS)
+# install homebrew
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # install asdf-vm, this make our life easier if we use multiple tooling
