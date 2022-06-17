@@ -41,7 +41,7 @@ source $PROFILE_CONFIG
 brew install asdf
 echo "" >> $PROFILE_CONFIG
 echo "# asdf" >> $PROFILE_CONFIG
-echo ". /usr/local/opt/asdf/libexec/asdf.sh" >> $PROFILE_CONFIG
+echo ". $(brew --prefix asdf)/libexec/asdf.sh" >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # asdf configuration

@@ -14,7 +14,7 @@ This repository contains scripts to setup my daily driver machine for software d
 Run this command on `bash` session:
 
 ```bash
-ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
+ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
 ```
 
 ## ZSH
@@ -30,7 +30,7 @@ sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.
 Run this command on `zsh` session:
 
 ```zsh
-ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-ubuntu.sh)"
+ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
 ```
 
 ### macOS
@@ -38,5 +38,5 @@ ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasinguli
 macOS uses `zsh` as default shell, run this command to setup:
 
 ```zsh
-/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/setup-macos.sh)"
+/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh)"
 ```
