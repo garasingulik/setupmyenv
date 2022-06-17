@@ -8,9 +8,6 @@ GOLANG_VERSION=1.18.2
 JAVA_VERSION=adoptopenjdk-14.0.2+12
 FLUTTER_VERSION=3.0.1-stable
 
-# install xcode command line tools
-xcode-select --install
-
 # android cli version
 ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-mac-8512546_latest.zip
 
@@ -48,9 +45,6 @@ echo ". /usr/local/opt/asdf/libexec/asdf.sh" >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # asdf configuration
-#
-# this is to integrate asdf java into os
-echo "java_macos_integration_enable = yes" >> ~/.asdfrc
 # this specific configuration is to make asdf compatible with nvm
 # so when the Node.js project has .nvmrc, asdf will honor this file
 # if .tool-versions is not found
