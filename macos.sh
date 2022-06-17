@@ -53,7 +53,7 @@ echo "java_macos_integration_enable = yes" >> ~/.asdfrc
 echo "legacy_version_file = yes" >> ~/.asdfrc
 
 # install asdf-python compile dependencies
-brew install openssl readline sqlite3 xz zlib tcl-tk
+brew install openssl readline sqlite3 xz zlib tcl-tk jq
 
 # actually install the tooling
 tools_install nodejs $NODEJS_VERSION
