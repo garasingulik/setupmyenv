@@ -86,6 +86,9 @@ echo 'export PATH=$PATH:$ANDROID_HOME/platform-tools' >> $PROFILE_CONFIG
 echo 'export ANDROID_SDK_ROOT=$ANDROID_HOME' >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
+# copy ~/.zshrc to ~/.bashrc for gitlab runner
+sed 's/.zsh/.bash/g' ~/.zshrc >> ~/.bashrc
+
 # android sdkmanager basic tools installation
 yes | sdkmanager --licenses
 sdkmanager --install "platform-tools" "platforms;android-30" "build-tools;32.0.0"
