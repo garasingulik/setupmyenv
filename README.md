@@ -35,7 +35,7 @@ ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasinguli
 
 ### macOS
 
-Install XCode, XCode Command Line Tools and accept XCode license with `sudo xcodebuild -license accept` before executing this script. macOS uses `zsh` as default shell, run this command to setup:
+Install `Xcode`, `Xcode Command Line Tools` and accept Xcode license with `sudo xcodebuild -license accept` before executing this script. macOS uses `zsh` as default shell, run this command to setup:
 
 ```zsh
 /bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh)"
