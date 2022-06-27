@@ -9,7 +9,7 @@ JAVA_VERSION=adoptopenjdk-14.0.2+12
 FLUTTER_VERSION=3.0.1-stable
 
 # install xcode command line tools
-xcode-select --install
+# xcode-select --install
 
 # android cli version
 ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-mac-8512546_latest.zip
