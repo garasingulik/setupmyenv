@@ -53,7 +53,7 @@ echo "java_macos_integration_enable = yes" >> ~/.asdfrc
 echo "legacy_version_file = yes" >> ~/.asdfrc
 
 # install asdf-python compile dependencies
-brew install openssl readline sqlite3 xz zlib tcl-tk jq fastlane cocoapods awscli terraform
+brew install openssl readline sqlite3 xz zlib tcl-tk jq fastlane cocoapods awscli terraform ruby
 
 # actually install the tooling
 tools_install nodejs $NODEJS_VERSION
@@ -86,6 +86,10 @@ echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest' >> $PROFILE_CONFIG
 echo 'export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin' >> $PROFILE_CONFIG
 echo 'export PATH=$PATH:$ANDROID_HOME/platform-tools' >> $PROFILE_CONFIG
 echo 'export ANDROID_SDK_ROOT=$ANDROID_HOME' >> $PROFILE_CONFIG
+source $PROFILE_CONFIG
+
+# set ruby path
+echo 'export PATH="/usr/local/opt/ruby/bin:$PATH"' >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # android sdkmanager basic tools installation
