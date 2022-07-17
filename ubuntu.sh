@@ -1,6 +1,6 @@
 #!/bin/bash
 export DEBIAN_FRONTEND=noninteractive
-export PROFILE_CONFIG="$HOME/.bashrc"
+export PROFILE_CONFIG="$HOME/.profile"
 
 # check for environment to setup
 if [ "$ENV" == "zsh" ]; then
