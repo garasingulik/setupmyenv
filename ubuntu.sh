@@ -57,7 +57,7 @@ echo 'eval $(/home/linuxbrew/.linuxbrew/bin/brew shellenv)' >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # install asdf-vm, this make our life easier if we use multiple tooling
-brew install asdf
+brew install asdf fastlane awscli terraform ruby
 echo "" >> $PROFILE_CONFIG
 echo "# asdf" >> $PROFILE_CONFIG
 echo ". /home/linuxbrew/.linuxbrew/opt/asdf/libexec/asdf.sh" >> $PROFILE_CONFIG
