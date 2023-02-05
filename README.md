@@ -6,7 +6,7 @@ This repository contains scripts to setup my daily driver machine for software d
 2. Installing OS basic tools for development
 3. Install Homebrew
 4. Install asdf
-5. Install nodejs, python, golang, java and flutter with asdf
+5. Install nodejs, python, golang, java, flutter, kubectl, helm, sops with asdf
 6. Install Android SDK Command Line
 
 ## Bash

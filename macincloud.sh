@@ -2,11 +2,14 @@
 export PROFILE_CONFIG="$HOME/.zshrc"
 
 # tooling version
-NODEJS_VERSION=16.15.0
-PYTHON_VERSION=3.10.4
-GOLANG_VERSION=1.18.2
+NODEJS_VERSION=16.19.0
+PYTHON_VERSION=3.10.9
+GOLANG_VERSION=1.20
 JAVA_VERSION=adoptopenjdk-14.0.2+12
-FLUTTER_VERSION=3.0.1-stable
+FLUTTER_VERSION=3.7.1-stable
+KUBECTL_VERSION=1.26.1
+HELM_VERSION=3.11.0
+SOPS_VERSION=3.7.3
 
 # android cli version
 ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-mac-8512546_latest.zip
@@ -59,6 +62,9 @@ tools_install python $PYTHON_VERSION
 tools_install golang $GOLANG_VERSION
 tools_install java $JAVA_VERSION
 tools_install flutter $FLUTTER_VERSION
+tools_install kubectl $FLUTTER_VERSION
+tools_install helm $FLUTTER_VERSION
+tools_install sops $FLUTTER_VERSION
 
 # asdf plugin config
 # this will automatically set JAVA_HOME to the preferred version when using asdf-java
