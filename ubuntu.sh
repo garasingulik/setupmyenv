@@ -40,7 +40,7 @@ sudo apt update && sudo apt install -y lsb-core locales build-essential git curl
 # install openssl 1.1.1 for backward compatibility (ubuntu:jammy)
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
 if [ $((UBUNTU_VERSION)) -gt 21 ]; then
-    curl -o /tmp/libssl1.1_1.1.1n-0+deb10u4_amd64.deb http://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1n-0+deb10u4_amd64.deb
+    curl -o /tmp/libssl1.1_1.1.1n-0+deb10u4_amd64.deb http://security.debian.org/debian-security/pool/updates/main/o/openssl/libssl1.1_1.1.1n-0+deb10u6_amd64.deb
     sudo apt install -y /tmp/libssl1.1_1.1.1n-0+deb10u4_amd64.deb
 fi
 
