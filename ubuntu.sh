@@ -32,14 +32,17 @@ function tools_install() {
 }
 
 # install base package and asdf build requirement
-sudo apt update && sudo apt install -y lsb-core locales build-essential git curl make jq unzip \
+sudo apt update && sudo apt install -y locales build-essential git curl make jq unzip \
   libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev wget llvm libncursesw5-dev xz-utils tk-dev libxml2-dev \
   libxmlsec1-dev libffi-dev liblzma-dev apt-transport-https ca-certificates software-properties-common \
   cmake ninja-build libgtk-3-dev clang gnupg
 
 # install openssl 1.1.1 for backward compatibility (ubuntu:jammy)
 export UBUNTU_VERSION=`lsb_release -a | grep Release | cut -d ':' -f2 | sed -e 's/^[[:space:]]*//' | cut -d '.' -f1`
-if [ $((UBUNTU_VERSION)) -gt 21 ]; then
+if [ $((UBUNTU_VERSION)) -gt 23 ]; then
+    sudo apt install -y lsb-base
+elif [ $((UBUNTU_VERSION)) -gt 21 ]; then
+    sudo apt install -y lsb-core
     OPENSSL_DOWNLOAD_FILENAME=libssl1.1_1.1.1n-0+deb10u6_amd64.deb
     curl -o /tmp/$OPENSSL_DOWNLOAD_FILENAME http://security.debian.org/debian-security/pool/updates/main/o/openssl/$OPENSSL_DOWNLOAD_FILENAME
     sudo apt install -y /tmp/$OPENSSL_DOWNLOAD_FILENAME
