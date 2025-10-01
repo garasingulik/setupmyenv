@@ -11,24 +11,24 @@ else
 fi
 
 # tooling version
-NODEJS_VERSION=16.19.0
-PYTHON_VERSION=3.10.9
-GOLANG_VERSION=1.20
-JAVA_VERSION=adoptopenjdk-14.0.2+12
-FLUTTER_VERSION=3.7.1-stable
-TERRAFORM_VERSION=1.3.7
-KUBECTL_VERSION=1.26.1
-HELM_VERSION=3.11.0
-SOPS_VERSION=3.7.3
+NODEJS_VERSION=22.20.0
+PYTHON_VERSION=3.10.18
+GOLANG_VERSION=1.25.1
+JAVA_VERSION=adoptopenjdk-17.0.16+8
+FLUTTER_VERSION=3.35.5-stable
+TERRAFORM_VERSION=1.13.3
+KUBECTL_VERSION=1.34.1
+HELM_VERSION=3.19.0
+SOPS_VERSION=3.11.0
 
 # android cli version
-ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-linux-8512546_latest.zip
+ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
 
 # helper script to install asdf plugin and set global tooling version
 function tools_install() {
   asdf plugin add $1
   asdf install $1 $2
-  asdf global $1 $2
+  asdf set -u $1 $2
 }
 
 # install base package and asdf build requirement
@@ -68,7 +68,7 @@ source $PROFILE_CONFIG
 brew install asdf fastlane awscli terraform ruby
 echo "" >> $PROFILE_CONFIG
 echo "# asdf" >> $PROFILE_CONFIG
-echo ". /home/linuxbrew/.linuxbrew/opt/asdf/libexec/asdf.sh" >> $PROFILE_CONFIG
+echo 'export PATH="${ASDF_DATA_DIR:-$HOME/.asdf}/shims:$PATH"' >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # asdf configuration
@@ -84,28 +84,31 @@ tools_install python $PYTHON_VERSION
 tools_install golang $GOLANG_VERSION
 tools_install java $JAVA_VERSION
 tools_install flutter $FLUTTER_VERSION
-tools_install terraform $FLUTTER_VERSION
-tools_install kubectl $FLUTTER_VERSION
-tools_install helm $FLUTTER_VERSION
-tools_install sops $FLUTTER_VERSION
+tools_install terraform $TERRAFORM_VERSION
+tools_install kubectl $KUBECTL_VERSION
+tools_install helm $HELM_VERSION
+tools_install sops $SOPS_VERSION
 
 # asdf plugin config
 # this will automatically set JAVA_HOME to the preferred version when using asdf-java
 if [ "$ENV" == "zsh" ]; then
-  echo -e ". ~/.asdf/plugins/java/set-java-home.zsh" >> $PROFILE_CONFIG
+echo '. ${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/java/set-java-home.zsh' >> $PROFILE_CONFIG
 else
-  echo -e ". ~/.asdf/plugins/java/set-java-home.bash" >> $PROFILE_CONFIG
+echo '. ${ASDF_DATA_DIR:-$HOME/.asdf}/plugins/java/set-java-home.bash' >> $PROFILE_CONFIG
 fi
+echo '. <(asdf completion bash)' >> $PROFILE_CONFIG
 source $PROFILE_CONFIG
 
 # android sdk and cli setup
-mkdir -p ~/android/sdk
-curl -o cli-tools.zip $ANDROID_CLI
-unzip cli-tools.zip -d ~/android/sdk
-mv ~/android/sdk/cmdline-tools ~/android/sdk/latest
-mkdir -p ~/android/sdk/cmdline-tools
-mv ~/android/sdk/latest ~/android/sdk/cmdline-tools
-rm -f cli-tools.zip
+export ANDROID_HOME=$HOME/android/sdk
+CLI_TOOLS_OUTPUT=cli-tools.zip
+mkdir -p $ANDROID_HOME
+curl -o $CLI_TOOLS_OUTPUT $ANDROID_CLI
+unzip $CLI_TOOLS_OUTPUT -d $ANDROID_HOME
+mv $ANDROID_HOME/cmdline-tools $ANDROID_HOME/latest
+mkdir -p $ANDROID_HOME/cmdline-tools
+mv $ANDROID_HOME/latest $ANDROID_HOME/cmdline-tools
+rm -f $CLI_TOOLS_OUTPUT
 
 # set android home path
 echo "" >> $PROFILE_CONFIG
