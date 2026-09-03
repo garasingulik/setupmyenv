@@ -29,7 +29,7 @@ install_homebrew() {
       [ -d "$HOME/.brew" ] || git clone --depth=1 https://github.com/Homebrew/brew "$HOME/.brew"
     fi
     BREW="$HOME/.brew/bin/brew"
-    profile_append_once homebrew <<'EOF'
+    profile_block homebrew <<'EOF'
 # homebrew
 export PATH="$HOME/.brew/bin:$HOME/.brew/sbin:$PATH"
 EOF
@@ -44,7 +44,7 @@ EOF
     if [ -x /opt/homebrew/bin/brew ]; then BREW=/opt/homebrew/bin/brew
     elif [ -x /usr/local/bin/brew ]; then BREW=/usr/local/bin/brew
     else BREW="brew"; fi
-    profile_append_once homebrew <<EOF
+    profile_block homebrew <<EOF
 # homebrew
 eval "\$($BREW shellenv)"
 EOF
@@ -53,22 +53,37 @@ EOF
   if ! is_dry_run && [ -x "$BREW" ]; then eval "$("$BREW" shellenv)"; fi
 }
 
-brew_install() {
-  if is_dry_run; then log "[dry-run] brew install $*"; return 0; fi
-  "$BREW" install "$@"
-}
-
 install_brew_tools() {
-  step "brew: asdf + build deps"
   # asdf from Homebrew is fine (0.16+ Go binary); we DO NOT source asdf.sh
   local pkgs="asdf jq openssl@3 readline sqlite3 xz zlib tcl-tk libyaml"
   if [ "$MODE" != noadmin ]; then pkgs="$pkgs awscli fastlane cocoapods"; fi
-  # shellcheck disable=SC2086
-  brew_install $pkgs
+
+  if is_dry_run; then log "[dry-run] brew install/upgrade: $pkgs"; return 0; fi
+
+  local p missing="" outdated=""
+  for p in $pkgs; do
+    if "$BREW" list --versions "$p" >/dev/null 2>&1; then
+      "$BREW" outdated --quiet "$p" 2>/dev/null | grep -q . && outdated="$outdated $p"
+    else
+      missing="$missing $p"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    step "brew: install$missing"
+    # shellcheck disable=SC2086
+    "$BREW" install $missing
+  fi
+  if [ -n "$outdated" ]; then
+    step "brew: upgrade$outdated"
+    # shellcheck disable=SC2086
+    "$BREW" upgrade $outdated || warn "brew upgrade reported an error (continuing)"
+  fi
+  [ -z "$missing$outdated" ] && log "brew tools already up to date"
+  return 0
 }
 
 profile_core() {
-  profile_append_once core <<'EOF'
+  profile_block core <<'EOF'
 # locale
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -101,10 +116,10 @@ install_runtimes() {
 }
 
 configure_asdf() {
-  rcfile_line_once "$HOME/.asdfrc" "legacy_version_file = yes"
-  rcfile_line_once "$HOME/.asdfrc" "java_macos_integration_enable = yes"
+  asdfrc_set legacy_version_file yes
+  asdfrc_set java_macos_integration_enable yes
 
-  profile_append_once asdf <<'EOF'
+  profile_block asdf <<'EOF'
 # asdf
 export ASDF_DATA_DIR="$HOME/.asdf"
 export PATH="$ASDF_DATA_DIR/shims:$PATH"
@@ -115,7 +130,7 @@ EOF
   have asdf || return 0
   mkdir -p "$HOME/.asdf/completions"
   asdf completion zsh > "$HOME/.asdf/completions/_asdf" 2>/dev/null || true
-  profile_append_once asdf-completion <<'EOF'
+  profile_block asdf-completion <<'EOF'
 # asdf completions
 fpath=("$HOME/.asdf/completions" $fpath)
 autoload -Uz compinit && compinit
@@ -133,11 +148,24 @@ activate_java() {
 install_extra_tools() {
   [ "$MODE" != noadmin ] && return 0   # workstation got these from brew
   ensure_asdf_env
-  step "fastlane + cocoapods (RubyGems, no-admin)"
+  local install="" update=""
+  if have fastlane; then update="$update fastlane"; else install="$install fastlane"; fi
+  if have pod;      then update="$update cocoapods"; else install="$install cocoapods"; fi
   if is_dry_run; then
-    log "[dry-run] gem install fastlane cocoapods"
-  elif have gem; then
-    gem install --no-document fastlane cocoapods
+    log "[dry-run] install/upgrade fastlane cocoapods (RubyGems)"
+  elif ! have gem; then
+    warn "ruby/gem not on PATH — skipping fastlane/cocoapods"
+  else
+    if [ -n "$install" ]; then
+      step "gem install$install (no-admin)"
+      # shellcheck disable=SC2086
+      gem install --no-document $install
+    fi
+    if [ -n "$update" ]; then
+      step "gem: check upgrades for$update"
+      # shellcheck disable=SC2086
+      gem update --no-document $update || warn "gem upgrade check failed (keeping current)"
+    fi
   fi
   have aws || warn "aws cli not installed (needs admin); install manually if required"
 }
@@ -161,7 +189,7 @@ install_android() {
     fi
   fi
 
-  profile_append_once android <<'EOF'
+  profile_block android <<'EOF'
 # android
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"

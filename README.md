@@ -157,8 +157,16 @@ flutter --version && terraform version && kubectl version --client
 helm version && sops --version
 ```
 
-Re-running is safe: profile edits are fenced with `# >>> setupmyenv:<block> >>>`
-markers and skipped if already present.
+**Re-running is safe, cheap, and upgrades.** Every step checks first. Profile
+edits live in `# >>> setupmyenv:<block> >>>` fences: an unchanged re-run touches
+nothing, a block whose content changed is rewritten in place, and a duplicate
+left by an older run is collapsed. `asdf`/`apt`/`brew`/`gem`/`sdkmanager` steps
+are guarded by presence checks, so a second run mostly prints "already …".
+
+To upgrade a tool: bump it in `src/versions.env`, run `./build.sh`, then re-run
+the script. `asdf` installs the new version and switches the active pin to it
+(`upgrade <tool> <old> -> <new>`); on macOS, outdated Homebrew formulae are
+upgraded too.
 
 ## Development
 

@@ -106,6 +106,20 @@ run() {
 have()        { command -v "$1" >/dev/null 2>&1; }
 require_cmd()  { have "$1" || die "required command not found: $1"; }
 
+# version_lt A B  -> exit 0 (true) when A is strictly older than B.
+# Compares dotted numeric components; non-numeric noise (v, -stable, temurin-,
+# +build) is flattened first. Portable (no `sort -V`, which BSD lacks).
+version_lt() {
+  [ "$1" = "$2" ] && return 1
+  awk -v a="$1" -v b="$2" 'BEGIN{
+    gsub(/[^0-9.]+/,".",a); gsub(/[^0-9.]+/,".",b);
+    na=split(a,A,"."); nb=split(b,B,"."); m=(na>nb?na:nb);
+    for(i=1;i<=m;i++){ av=A[i]+0; bv=B[i]+0;
+      if(av<bv) exit 0; if(av>bv) exit 1 }
+    exit 1
+  }'
+}
+
 # --------------------------------------------------------------------------
 # Platform detection
 # --------------------------------------------------------------------------
@@ -217,36 +231,85 @@ resolve_shell_and_profiles() {
   log "shell: $TARGET_SHELL   profile(s): ${PROFILE_FILES[*]}"
 }
 
-# profile_append_once MARKER  (content on stdin)
-# Writes a fenced block once per profile file; re-runs are no-ops.
-profile_append_once() {
-  local marker="$1" content begin end f
+# profile_block MARKER  (content on stdin)
+# Ensures EXACTLY ONE fenced block per profile file whose body matches the
+# current content. Safe to run repeatedly:
+#   - block absent      -> appended
+#   - block present, stale (content changed between versions) -> rewritten
+#   - block present, identical -> file left untouched (no churn)
+# A stray/duplicate block from an older run is collapsed to one.
+profile_block() {
+  local marker="$1" content begin end f tmpc out
   begin="# >>> setupmyenv:${marker} >>>"
   end="# <<< setupmyenv:${marker} <<<"
   content="$(cat)"
+  tmpc="$(mktemp)"; printf '%s\n' "$content" > "$tmpc"
   for f in "${PROFILE_FILES[@]}"; do
-    if [ -f "$f" ] && grep -qF "$begin" "$f" 2>/dev/null; then
-      log "profile block '${marker}' already in ${f##*/} — skipping"
+    [ -e "$f" ] || { is_dry_run || : > "$f"; }
+    # Rebuild the file: the fresh block replaces the FIRST existing copy in
+    # place (stable ordering across runs), any further stray copies are
+    # dropped, and if the block is new it is appended after the last
+    # non-blank line. An identical result means the file is left untouched.
+    out="$(awk -v cf="$tmpc" -v b="$begin" -v e="$end" '
+      FILENAME==cf { body[++m]=$0; next }
+      $0==b { if (!seen) { lines[++n]="\001BLK\001"; seen=1 } drop=1; next }
+      drop && $0==e { drop=0; next }
+      drop { next }
+      { lines[++n]=$0 }
+      END {
+        if (!seen) {
+          while (n>0 && lines[n] ~ /^[ \t]*$/) n--
+          if (n>0) lines[++n]=""
+          lines[++n]="\001BLK\001"
+        }
+        for (i=1;i<=n;i++) {
+          if (lines[i]=="\001BLK\001") {
+            print b
+            for (j=1;j<=m;j++) print body[j]
+            print e
+          } else print lines[i]
+        }
+      }
+    ' "$tmpc" "$f" 2>/dev/null || true)"
+    if [ -f "$f" ] && [ "$out" = "$(cat "$f")" ]; then
+      log "profile block '${marker}' already current in ${f##*/}"
       continue
     fi
     if is_dry_run; then
-      printf '   %s[dry-run]%s append block %s to %s\n' "$_c_dim" "$_c_reset" "$marker" "$f" >&2
+      if [ -f "$f" ] && grep -qF "$begin" "$f" 2>/dev/null; then
+        printf '   %s[dry-run]%s refresh block %s in %s\n' "$_c_dim" "$_c_reset" "$marker" "$f" >&2
+      else
+        printf '   %s[dry-run]%s add block %s to %s\n' "$_c_dim" "$_c_reset" "$marker" "$f" >&2
+      fi
       continue
     fi
-    { printf '\n%s\n%s\n%s\n' "$begin" "$content" "$end"; } >> "$f"
-    ok "wrote block '${marker}' to ${f##*/}"
+    printf '%s\n' "$out" > "$f"
+    ok "profile block '${marker}' written to ${f##*/}"
   done
+  rm -f "$tmpc"
 }
 
-# rcfile_line_once FILE LINE  — append LINE to FILE unless already present
-rcfile_line_once() {
-  local file="$1" line="$2"
-  if [ -f "$file" ] && grep -qF -- "$line" "$file" 2>/dev/null; then return 0; fi
-  if is_dry_run; then
-    printf '   %s[dry-run]%s add %q to %s\n' "$_c_dim" "$_c_reset" "$line" "$file" >&2
+# asdfrc_set KEY VALUE  — maintain a single `KEY = VALUE` line in ~/.asdfrc.
+# Replaces an existing KEY line (even with a different value); adds it otherwise.
+asdfrc_set() {
+  local file="$HOME/.asdfrc" key="$1" val="$2" line
+  line="$key = $val"
+  [ -e "$file" ] || { is_dry_run || : > "$file"; }
+  if [ -f "$file" ] && grep -qxF "$line" "$file" 2>/dev/null; then
+    log ".asdfrc: $key already set"
     return 0
   fi
-  printf '%s\n' "$line" >> "$file"
+  if is_dry_run; then
+    printf '   %s[dry-run]%s .asdfrc set %s\n' "$_c_dim" "$_c_reset" "$line" >&2
+    return 0
+  fi
+  if [ -f "$file" ] && grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$file" 2>/dev/null; then
+    sed -i.bak "s|^[[:space:]]*${key}[[:space:]]*=.*|${line}|" "$file" && rm -f "$file.bak"
+    ok ".asdfrc: updated $key"
+  else
+    printf '%s\n' "$line" >> "$file"
+    ok ".asdfrc: set $key"
+  fi
 }
 
 # --------------------------------------------------------------------------
@@ -297,16 +360,32 @@ ensure_asdf_env() {
 }
 
 # asdf_install_tool PLUGIN VERSION
+#   - install the pinned version if it is not already built
+#     (this is the upgrade path: a bumped pin on re-run gets installed)
+#   - `asdf plugin update` first, so a freshly-released pinned version resolves
+#   - always (re)assert the global pin, so the active version moves to it
 asdf_install_tool() {
-  local plugin="$1" version="$2"
+  local plugin="$1" version="$2" active
   if is_dry_run; then
     printf '   %s[dry-run]%s asdf %s %s\n' "$_c_dim" "$_c_reset" "$plugin" "$version" >&2
     return 0
   fi
-  step "asdf: $plugin $version"
   asdf plugin add "$plugin" 2>/dev/null || true
-  asdf install "$plugin" "$version"
+  if asdf list "$plugin" 2>/dev/null | tr -d ' *' | grep -qxF "$version"; then
+    log "asdf: $plugin $version already installed"
+  else
+    active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+    if [ -n "$active" ] && [ "$active" != "$version" ]; then
+      step "asdf: upgrade $plugin $active -> $version"
+    else
+      step "asdf: install $plugin $version"
+    fi
+    asdf plugin update "$plugin" 2>/dev/null || true
+    asdf install "$plugin" "$version"
+  fi
   asdf set -u "$plugin" "$version"
+  active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+  [ -n "$active" ] && log "asdf: $plugin now $active"
 }
 
 # Arm the error trap now that _on_err is defined.
@@ -340,7 +419,7 @@ install_homebrew() {
       [ -d "$HOME/.brew" ] || git clone --depth=1 https://github.com/Homebrew/brew "$HOME/.brew"
     fi
     BREW="$HOME/.brew/bin/brew"
-    profile_append_once homebrew <<'EOF'
+    profile_block homebrew <<'EOF'
 # homebrew
 export PATH="$HOME/.brew/bin:$HOME/.brew/sbin:$PATH"
 EOF
@@ -355,7 +434,7 @@ EOF
     if [ -x /opt/homebrew/bin/brew ]; then BREW=/opt/homebrew/bin/brew
     elif [ -x /usr/local/bin/brew ]; then BREW=/usr/local/bin/brew
     else BREW="brew"; fi
-    profile_append_once homebrew <<EOF
+    profile_block homebrew <<EOF
 # homebrew
 eval "\$($BREW shellenv)"
 EOF
@@ -364,22 +443,37 @@ EOF
   if ! is_dry_run && [ -x "$BREW" ]; then eval "$("$BREW" shellenv)"; fi
 }
 
-brew_install() {
-  if is_dry_run; then log "[dry-run] brew install $*"; return 0; fi
-  "$BREW" install "$@"
-}
-
 install_brew_tools() {
-  step "brew: asdf + build deps"
   # asdf from Homebrew is fine (0.16+ Go binary); we DO NOT source asdf.sh
   local pkgs="asdf jq openssl@3 readline sqlite3 xz zlib tcl-tk libyaml"
   if [ "$MODE" != noadmin ]; then pkgs="$pkgs awscli fastlane cocoapods"; fi
-  # shellcheck disable=SC2086
-  brew_install $pkgs
+
+  if is_dry_run; then log "[dry-run] brew install/upgrade: $pkgs"; return 0; fi
+
+  local p missing="" outdated=""
+  for p in $pkgs; do
+    if "$BREW" list --versions "$p" >/dev/null 2>&1; then
+      "$BREW" outdated --quiet "$p" 2>/dev/null | grep -q . && outdated="$outdated $p"
+    else
+      missing="$missing $p"
+    fi
+  done
+  if [ -n "$missing" ]; then
+    step "brew: install$missing"
+    # shellcheck disable=SC2086
+    "$BREW" install $missing
+  fi
+  if [ -n "$outdated" ]; then
+    step "brew: upgrade$outdated"
+    # shellcheck disable=SC2086
+    "$BREW" upgrade $outdated || warn "brew upgrade reported an error (continuing)"
+  fi
+  [ -z "$missing$outdated" ] && log "brew tools already up to date"
+  return 0
 }
 
 profile_core() {
-  profile_append_once core <<'EOF'
+  profile_block core <<'EOF'
 # locale
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -412,10 +506,10 @@ install_runtimes() {
 }
 
 configure_asdf() {
-  rcfile_line_once "$HOME/.asdfrc" "legacy_version_file = yes"
-  rcfile_line_once "$HOME/.asdfrc" "java_macos_integration_enable = yes"
+  asdfrc_set legacy_version_file yes
+  asdfrc_set java_macos_integration_enable yes
 
-  profile_append_once asdf <<'EOF'
+  profile_block asdf <<'EOF'
 # asdf
 export ASDF_DATA_DIR="$HOME/.asdf"
 export PATH="$ASDF_DATA_DIR/shims:$PATH"
@@ -426,7 +520,7 @@ EOF
   have asdf || return 0
   mkdir -p "$HOME/.asdf/completions"
   asdf completion zsh > "$HOME/.asdf/completions/_asdf" 2>/dev/null || true
-  profile_append_once asdf-completion <<'EOF'
+  profile_block asdf-completion <<'EOF'
 # asdf completions
 fpath=("$HOME/.asdf/completions" $fpath)
 autoload -Uz compinit && compinit
@@ -444,11 +538,24 @@ activate_java() {
 install_extra_tools() {
   [ "$MODE" != noadmin ] && return 0   # workstation got these from brew
   ensure_asdf_env
-  step "fastlane + cocoapods (RubyGems, no-admin)"
+  local install="" update=""
+  if have fastlane; then update="$update fastlane"; else install="$install fastlane"; fi
+  if have pod;      then update="$update cocoapods"; else install="$install cocoapods"; fi
   if is_dry_run; then
-    log "[dry-run] gem install fastlane cocoapods"
-  elif have gem; then
-    gem install --no-document fastlane cocoapods
+    log "[dry-run] install/upgrade fastlane cocoapods (RubyGems)"
+  elif ! have gem; then
+    warn "ruby/gem not on PATH — skipping fastlane/cocoapods"
+  else
+    if [ -n "$install" ]; then
+      step "gem install$install (no-admin)"
+      # shellcheck disable=SC2086
+      gem install --no-document $install
+    fi
+    if [ -n "$update" ]; then
+      step "gem: check upgrades for$update"
+      # shellcheck disable=SC2086
+      gem update --no-document $update || warn "gem upgrade check failed (keeping current)"
+    fi
   fi
   have aws || warn "aws cli not installed (needs admin); install manually if required"
 }
@@ -472,7 +579,7 @@ install_android() {
     fi
   fi
 
-  profile_append_once android <<'EOF'
+  profile_block android <<'EOF'
 # android
 export ANDROID_HOME="$HOME/Library/Android/sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"

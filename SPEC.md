@@ -102,8 +102,16 @@ Source: [`src/versions.env`](./src/versions.env). Last re-baselined 2026-09-03.
 - **One place to bump a version:** `src/versions.env`.
 - **`asdf` is the runtime manager.** Anything with multiple concurrent versions
   in real projects goes through `asdf`, not the OS package manager or Homebrew.
-- **Idempotent.** Profile edits are fenced blocks written once; re-runs are
-  no-ops. Runtime installs skip work `asdf`/the SDK already did.
+- **Repeatable / self-converging.** Every step checks state first. Profile
+  edits are fenced blocks: an unchanged re-run leaves the file untouched, a
+  changed block is rewritten in place, a stray duplicate is collapsed. `.asdfrc`
+  keys are replaced not appended. `asdf`, `apt`, `brew`, `gem`, `sdkmanager` and
+  the locale/OpenSSL steps are all guarded by presence checks, so a second run
+  is fast and non-destructive.
+- **Re-run to upgrade.** A bumped pin in `versions.env` on re-run installs the
+  new version through `asdf` and moves the active pin to it; the `asdf` binary
+  upgrades when older than the pin (`version_lt`); outdated Homebrew formulae
+  are `brew upgrade`d; `gem update` runs for the RubyGems tools.
 - **Fail loud.** `set -eEuo pipefail` + an `ERR` trap that names the failing
   line; the run is wrapped in `main "$@"` so a truncated download does nothing.
 - **Previewable.** `--dry-run` prints every step and changes nothing.
@@ -125,7 +133,7 @@ The defects from the first revision of this spec, and where they stand.
 | B5  | Homebrew-on-Linux via `git clone ~/.brew`                     | **Fixed** — no Homebrew on Linux at all. |
 | B6  | `asdf completion bash` written into a zsh profile             | **Fixed** — completion generated for the target shell. |
 | B7  | Hardcoded Intel `/usr/local/opt/ruby` `PATH` on macOS         | **Fixed** — removed; rely on `brew shellenv` + asdf shims. |
-| B8  | Not idempotent — profile blocks appended every run            | **Fixed** — `profile_append_once` / `rcfile_line_once` with markers. |
+| B8  | Not idempotent — profile blocks appended every run            | **Fixed** — `profile_block` (fenced, replace-in-place, dedupe, no-op when unchanged) + `asdfrc_set` (key-replace) + per-step presence guards. Re-run also **upgrades**: bumped pins install and re-activate through `asdf`; `asdf` itself and Homebrew formulae upgrade when behind. |
 | B9  | No strict mode, failures not surfaced                         | **Fixed** — `set -eEuo pipefail`, `ERR` trap, `main "$@"` wrapper. |
 | B10 | Downloads not integrity-checked                               | **Partial** — `verify_sha256` + `download` wired for the `.deb` and Android zip; pins in `versions.env` ship blank (skip-with-warning) and still need filling per release. |
 | B11 | `macincloud.sh` greedy `sed 's/.zsh/.bash/g'`                 | **Fixed** — the `.bashrc` mirror is produced by writing the same fenced blocks to both files. |

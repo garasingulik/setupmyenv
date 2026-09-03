@@ -31,9 +31,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `set -eEuo pipefail` with an error trap that reports the failing line; the
   whole run is wrapped in `main "$@"` so a truncated download cannot execute a
   partial script.
-- Idempotent profile edits — configuration is written between
-  `# >>> setupmyenv:<block> >>>` fences and re-runs are no-ops instead of
-  appending duplicates.
+- Fully repeatable runs. Every step checks first:
+  - Profile edits are written between `# >>> setupmyenv:<block> >>>` fences.
+    A re-run with unchanged content leaves the file **byte-for-byte untouched**;
+    a block whose content changed between versions is **rewritten in place**
+    (stable position, no reordering); a stray duplicate block from an older run
+    is collapsed to one. Applies to `~/.zshrc`, `~/.profile` / `~/.bash_profile`,
+    and (no-admin) `~/.bashrc`.
+  - `~/.asdfrc` keys are replaced, not re-appended, if the value changed.
+  - `asdf` skips the (slow) build when the exact version is already installed;
+    `apt` / `sdkmanager` / `brew` / `gem` steps are guarded by presence checks
+    (`dpkg -s`, `locale -a`, `command -v`, `brew list`, …) so a second run is
+    fast and prints "already …" instead of redoing work.
+  - **Re-run to upgrade.** Bump a version in `src/versions.env`, `./build.sh`,
+    re-run: `asdf_install_tool` installs the new pinned version and moves the
+    global/active pin to it (logs `upgrade <tool> <old> -> <new>`). The `asdf`
+    binary itself is upgraded when the installed one is older than the pin
+    (a manually-newer one is left alone). On macOS, outdated Homebrew formulae
+    are `brew upgrade`d and `gem update` is run for fastlane/cocoapods.
 - Optional SHA-256 verification of directly-downloaded artifacts (the
   `libssl1.1` `.deb` and the Android cmdline-tools zip). Pins live in
   `versions.env`; blank means "skip with a warning". `SKIP_CHECKSUM=1` opts out.

@@ -29,6 +29,10 @@ openssl11_shim() {
     log "Ubuntu ${rel}: libssl1.1 backward-compat shim not needed"
     return 0
   fi
+  if dpkg -s libssl1.1 >/dev/null 2>&1; then
+    log "libssl1.1 already installed"
+    return 0
+  fi
   step "openssl 1.1 backward-compat shim (Ubuntu ${rel})"
   download "${LIBSSL1_DEB_BASEURL}/${LIBSSL1_DEB}" "/tmp/${LIBSSL1_DEB}" "${LIBSSL1_DEB_SHA256}"
   priv env DEBIAN_FRONTEND=noninteractive apt-get install -y "/tmp/${LIBSSL1_DEB}"
@@ -36,6 +40,10 @@ openssl11_shim() {
 }
 
 gen_locale() {
+  if locale -a 2>/dev/null | grep -qiE 'en_us\.utf-?8'; then
+    log "locale en_US.UTF-8 already generated"
+    return 0
+  fi
   step "locale: en_US.UTF-8"
   if [ -f /etc/locale.gen ]; then
     priv sed -i 's/^# *\(en_US\.UTF-8 UTF-8\)/\1/' /etc/locale.gen
@@ -47,7 +55,7 @@ gen_locale() {
 }
 
 profile_core() {
-  profile_append_once core <<'EOF'
+  profile_block core <<'EOF'
 # locale
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
@@ -61,10 +69,17 @@ EOF
 install_asdf() {
   mkdir -p "$HOME/.local/bin"
   export PATH="$HOME/.local/bin:$PATH"
+  local cur=""
   if have asdf; then
-    log "asdf already installed: $(asdf --version 2>/dev/null || echo unknown)"
+    cur="$(asdf --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)"
+  fi
+  if [ -n "$cur" ] && [ "$cur" = "$ASDF_VERSION" ]; then
+    log "asdf ${ASDF_VERSION} already installed"
+  elif [ -n "$cur" ] && ! version_lt "$cur" "$ASDF_VERSION"; then
+    log "asdf ${cur} present (newer than pinned ${ASDF_VERSION}) — keeping"
   else
-    step "install asdf ${ASDF_VERSION}"
+    if [ -n "$cur" ]; then step "upgrade asdf ${cur} -> ${ASDF_VERSION}"
+    else step "install asdf ${ASDF_VERSION}"; fi
     local arch tgz url
     arch="$(arch_tag)"
     [ "$arch" = unknown ] && die "unsupported CPU architecture: $(uname -m)"
@@ -101,12 +116,12 @@ install_runtimes() {
 }
 
 configure_asdf() {
-  rcfile_line_once "$HOME/.asdfrc" "legacy_version_file = yes"
+  asdfrc_set legacy_version_file yes
 
   local jhook
   if [ "$TARGET_SHELL" = zsh ]; then jhook="set-java-home.zsh"; else jhook="set-java-home.bash"; fi
 
-  profile_append_once asdf <<EOF
+  profile_block asdf <<EOF
 # asdf
 export ASDF_DATA_DIR="\$HOME/.asdf"
 export PATH="\$ASDF_DATA_DIR/shims:\$PATH"
@@ -118,14 +133,14 @@ EOF
   mkdir -p "$HOME/.asdf/completions"
   if [ "$TARGET_SHELL" = zsh ]; then
     asdf completion zsh > "$HOME/.asdf/completions/_asdf" 2>/dev/null || true
-    profile_append_once asdf-completion <<'EOF'
+    profile_block asdf-completion <<'EOF'
 # asdf completions
 fpath=("$HOME/.asdf/completions" $fpath)
 autoload -Uz compinit && compinit
 EOF
   else
     asdf completion bash > "$HOME/.asdf/completions/asdf.bash" 2>/dev/null || true
-    profile_append_once asdf-completion <<'EOF'
+    profile_block asdf-completion <<'EOF'
 # asdf completions
 [ -f "$HOME/.asdf/completions/asdf.bash" ] && . "$HOME/.asdf/completions/asdf.bash"
 EOF
@@ -143,13 +158,16 @@ activate_java() {
 
 install_extra_tools() {
   ensure_asdf_env
-  step "fastlane (RubyGems)"
   if is_dry_run; then
-    log "[dry-run] gem install fastlane"
-  elif have gem; then
-    gem install --no-document fastlane
-  else
+    log "[dry-run] install/upgrade fastlane (RubyGems)"
+  elif ! have gem; then
     warn "ruby/gem not on PATH — skipping fastlane"
+  elif have fastlane; then
+    step "fastlane: check for upgrade"
+    gem update --no-document fastlane || warn "fastlane upgrade check failed (keeping current)"
+  else
+    step "fastlane (RubyGems)"
+    gem install --no-document fastlane
   fi
   install_awscli
 }
@@ -192,7 +210,7 @@ install_android() {
     fi
   fi
 
-  profile_append_once android <<'EOF'
+  profile_block android <<'EOF'
 # android
 export ANDROID_HOME="$HOME/android/sdk"
 export ANDROID_SDK_ROOT="$ANDROID_HOME"
