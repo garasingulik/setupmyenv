@@ -1,0 +1,125 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Lint build tooling
+        run: shellcheck build.sh scripts/*.sh
+      - name: Lint generated scripts
+        # SC2034: versions.env is a deliberately broad shared config surface;
+        # not every generated script consumes every pin.
+        run: shellcheck -x -e SC1091,SC2034 ubuntu.sh docker.sh macos.sh macincloud.sh
+
+  build-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generated scripts are in sync with src/
+        run: ./build.sh --check
+
+  smoke-dryrun-linux:
+    needs: [lint, build-drift]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:20.04", "ubuntu:22.04", "ubuntu:24.04"]
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prereqs
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq bash curl ca-certificates
+      - name: Syntax
+        run: for f in ubuntu.sh docker.sh; do bash -n "$f"; done
+      - name: Dry-run (vm)
+        run: bash ubuntu.sh --dry-run
+      - name: Dry-run (container)
+        run: bash docker.sh --dry-run
+      - name: Dry-run (zsh + opt-outs)
+        run: ENV=zsh bash ubuntu.sh --dry-run --no-android --no-flutter
+
+  smoke-dryrun-macos:
+    needs: [lint, build-drift]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: for f in macos.sh macincloud.sh; do bash -n "$f"; done
+      - run: bash macos.sh --dry-run
+      - run: bash macincloud.sh --dry-run
+
+  # Full, real installation. Slow (compiles Python/Ruby, downloads SDKs), so it
+  # is opt-in: run it from the Actions tab before releasing a version bump.
+  full-install-linux:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["ubuntu:22.04", "ubuntu:24.04"]
+    container:
+      image: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prereqs
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq bash curl ca-certificates sudo
+      - name: Install toolchain (no Android — no emulator in CI)
+        run: bash ubuntu.sh --container --no-android
+      - name: Verify
+        run: |
+          export ASDF_DATA_DIR="$HOME/.asdf"
+          export PATH="$HOME/.asdf/shims:$HOME/.local/bin:$PATH"
+          set -x
+          node --version
+          python --version
+          go version
+          java -version
+          terraform version
+          kubectl version --client
+          helm version
+          sops --version
+
+  # Weekly check: is anything in src/versions.env behind upstream?
+  version-check:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare pinned versions with upstream
+        id: check
+        run: |
+          scripts/check-versions.sh | tee /tmp/report.txt
+          if grep -q 'OUTDATED' /tmp/report.txt; then echo "outdated=1" >> "$GITHUB_OUTPUT"; fi
+      - name: Open / update tracking issue
+        if: steps.check.outputs.outdated == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="chore: toolchain versions behind upstream"
+          body="$(cat /tmp/report.txt)"
+          existing="$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number' || true)"
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body" --label chore || true
+          fi

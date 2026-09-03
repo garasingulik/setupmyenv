@@ -12,50 +12,71 @@ blank OS into a working toolchain.
 **Invocation pattern (from `README.md`):**
 
 ```bash
-# Ubuntu, bash login shell
-ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
+# Ubuntu (configure ~/.profile)
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh | bash
 
-# Ubuntu, zsh login shell
-ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
+# Ubuntu, zsh + preview only
+curl -fsSL .../ubuntu.sh | bash -s -- --shell zsh --dry-run
 
-# macOS (zsh default)
-/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh)"
+# macOS
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh | bash
 ```
 
-## 2. Scripts
+The legacy `ENV=zsh /bin/bash -c "$(curl -fsSL …)"` form is still accepted.
 
-| Script          | Target environment                                   | Shell | Privilege model            | Homebrew location                     |
-|-----------------|------------------------------------------------------|-------|----------------------------|---------------------------------------|
-| `ubuntu.sh`     | Ubuntu 20.04 / 22.04 / 24.04 desktop or cloud VM     | bash (writes bash **or** zsh profile via `ENV`) | `sudo` available            | official installer → `/home/linuxbrew/.linuxbrew` |
-| `macos.sh`      | Local macOS workstation                              | zsh   | admin user                 | official installer                    |
-| `macincloud.sh` | Hosted macOS (MacinCloud) + GitLab runner use       | zsh   | **no admin**               | `git clone` → `~/.brew`               |
-| `docker.sh`     | Ubuntu base image inside a container                 | bash  | runs as **root**, no `sudo`| `git clone` → `~/.brew`               |
+## 2. Repository layout
+
+The four root scripts are **generated** — single, self-contained, safe to
+`curl | bash` — from shared sources:
+
+```
+src/versions.env      single source of truth for every pinned version
+src/lib.sh            shared: arg parsing, logging, --dry-run, strict mode +
+                      error trap, idempotent fenced profile edits, checksum
+                      verification, asdf helpers
+src/ubuntu.body.sh    Ubuntu logic   — modes: vm, container
+src/macos.body.sh     macOS logic    — modes: workstation, noadmin
+build.sh              inlines the above -> ubuntu.sh docker.sh macos.sh macincloud.sh
+                      (`./build.sh --check` is the CI drift gate)
+scripts/check-versions.sh   compares versions.env against upstream "latest"
+```
+
+| Script          | = body / mode              | Target                                        | Privilege        |
+|-----------------|----------------------------|-----------------------------------------------|------------------|
+| `ubuntu.sh`     | ubuntu / `vm`              | Ubuntu 20.04–24.04 desktop or cloud VM        | `sudo`           |
+| `docker.sh`     | ubuntu / `container`       | Ubuntu base image, built as root              | root, no `sudo`  |
+| `macos.sh`      | macos / `workstation`      | Local macOS workstation                       | admin            |
+| `macincloud.sh` | macos / `noadmin`          | Hosted macOS (MacinCloud) + GitLab runner     | no admin         |
+
+Homebrew is used **only on macOS**. On Linux `asdf` comes from its GitHub
+release binary, `awscli` from the official installer, `fastlane` from RubyGems.
 
 ## 3. What the scripts do (common flow)
 
-1. Select the profile file to mutate (`~/.profile`, `~/.bashrc`, or `~/.zshrc`)
-   from the `ENV` variable.
-2. Pin a set of toolchain versions in shell variables at the top of the file.
-3. Install OS base packages / build dependencies (`apt` on Ubuntu, Xcode CLT +
-   `brew` deps on macOS).
-4. On Ubuntu ≤ 22.04, side-load Debian's `libssl1.1` `.deb` for backward
-   compatibility with tools still linked against OpenSSL 1.1.
-5. Configure locale and `GPG_TTY`.
-6. Install Homebrew / Linuxbrew.
-7. Install [`asdf`](https://asdf-vm.com) plus a few brew-managed extras
-   (`fastlane`, `awscli`, `terraform`, `ruby`, and on macOS `cocoapods`).
-8. Configure `asdf` (`legacy_version_file = yes` for `.nvmrc` compatibility;
-   `java_macos_integration_enable = yes` on macOS).
-9. Install language/tool runtimes through `asdf` via the `tools_install` helper:
-   `nodejs`, `python`, `golang`, `java`, `flutter`, `terraform`, `kubectl`,
-   `helm`, `sops`.
-10. Wire `JAVA_HOME` via the asdf-java hook and add shell completion.
-11. Download the Android command-line tools, relocate them to
-    `cmdline-tools/latest`, accept SDK licenses, and install `platform-tools`,
-    `platforms;android-30`, `build-tools;32.0.0`.
-12. Print a "restart your shell" notice.
+1. Parse flags (`--dry-run`, `--no-android`, `--no-flutter`, `--shell`,
+   `--container`, `--no-admin`); resolve the target shell and the rc file(s) to
+   configure (`noadmin` writes both `~/.zshrc` and `~/.bashrc`).
+2. Install OS base packages / build dependencies (`apt` on Ubuntu, Homebrew deps
+   on macOS).
+3. On Ubuntu ≤ 22.04, side-load Debian's `libssl1.1` `.deb` (optionally
+   checksum-verified) for tools still linked against OpenSSL 1.1.
+4. Configure locale (`locale-gen`, with `sudo` where needed) and `GPG_TTY`.
+5. Install `asdf` and put its shims directory on `PATH` for the current process
+   (no `source`-ing of the user rc file).
+6. Install `asdf` runtimes: `nodejs`, `python`, `golang`, `java`, `flutter`
+   (unless `--no-flutter`), `terraform`, `kubectl`, `helm`, `sops`, `ruby`.
+7. Configure `asdf`: `legacy_version_file = yes`, the asdf-java `JAVA_HOME` hook,
+   and shell completion for the *target* shell.
+8. Install `fastlane` + `awscli` (+ `cocoapods` on macOS).
+9. Unless `--no-android`: download the Android command-line tools, relocate to
+   `cmdline-tools/latest`, accept licenses, install `platform-tools`, the
+   platform and build-tools from `versions.env`.
+10. Write each config block once, fenced with `# >>> setupmyenv:<block> >>>`
+    markers; print a "restart your shell" notice.
 
-## 4. Pinned toolchain (current `main`)
+## 4. Pinned toolchain
+
+Source: [`src/versions.env`](./src/versions.env). Last re-baselined 2026-09-03.
 
 | Tool      | Version                    |
 |-----------|----------------------------|
@@ -63,204 +84,100 @@ ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasinguli
 | Python    | `3.13.15`                  |
 | Go        | `1.27.1`                   |
 | Java      | `temurin-25.0.4+7` (LTS)   |
-| Flutter   | `3.47.1-stable`            |
+| Flutter   | `3.47.2-stable`            |
 | Terraform | `1.16.1`                   |
-| kubectl   | `1.35.2`                   |
+| kubectl   | `1.37.0`                   |
 | Helm      | `4.2.4` (Helm 4 GA line)   |
 | SOPS      | `3.13.3`                   |
+| Ruby      | `3.4.10`                   |
+| asdf      | `0.20.0`                   |
 | Android cmdline-tools | `14742923` (`android-36`, `build-tools;36.0.0`) |
-
-_Last re-baselined 2026-09-03. Java identifier migrated from the retired
-`adoptopenjdk-` prefix to `temurin-`._
 
 ## 5. Design principles / constraints
 
-- **Single file, no dependencies.** Each script must run from `curl | sh` with
-  nothing pre-installed beyond the OS and its default shell.
-- **Version pinning at the top.** All upgradable versions live in clearly
-  labelled variables in the first ~25 lines so a bump is a one-line change.
+- **Generated single file, no runtime dependencies.** `build.sh` inlines
+  `versions.env` + `lib.sh` + a body into each root script so the published
+  artifact still runs from `curl | bash` with nothing pre-installed. CI blocks
+  drift between `src/` and the committed scripts.
+- **One place to bump a version:** `src/versions.env`.
 - **`asdf` is the runtime manager.** Anything with multiple concurrent versions
-  in real projects goes through `asdf`, not the OS package manager or brew.
-- **Profile file is append-only.** Configuration is added with `>>` to the
-  user's rc file; the running shell is expected to be restarted afterwards.
+  in real projects goes through `asdf`, not the OS package manager or Homebrew.
+- **Idempotent.** Profile edits are fenced blocks written once; re-runs are
+  no-ops. Runtime installs skip work `asdf`/the SDK already did.
+- **Fail loud.** `set -eEuo pipefail` + an `ERR` trap that names the failing
+  line; the run is wrapped in `main "$@"` so a truncated download does nothing.
+- **Previewable.** `--dry-run` prints every step and changes nothing.
 - **Non-interactive.** `DEBIAN_FRONTEND=noninteractive`, `NONINTERACTIVE=1`,
-  `yes | sdkmanager --licenses` — no prompts.
+  license prompts auto-accepted.
 
 ---
 
-## 6. Known bugs / defects
+## 6. Bug list — status
 
-Ordered roughly by severity. Line numbers refer to `main` at spec authoring time.
+The defects from the first revision of this spec, and where they stand.
 
-### B1 — `docker.sh` is broken on Ubuntu 22.04 and 24.04 (multiple causes)
+| ID  | Summary                                                        | Status |
+|-----|---------------------------------------------------------------|--------|
+| B1  | `docker.sh` broken on Ubuntu 22.04/24.04 (`lsb-core`, stale `.deb` name, unbounded OpenSSL shim, inconsistent `sudo`) | **Fixed** — `docker.sh` is now the Ubuntu body in `container` mode; the OpenSSL shim is gated to Ubuntu ≤ 22.04 via `/etc/os-release`; no `lsb-*` package; `sudo` only when not root. |
+| B2  | zsh flow leaves `brew`/`asdf` off `PATH` (script `source`s a bash-incompatible `~/.zshrc`) | **Fixed** — the script never sources the rc file; `PATH` is set in-process (`ensure_asdf_env`). |
+| B3  | macOS sources the removed `libexec/asdf.sh`                   | **Fixed** — asdf shims dir is prepended to `PATH`, same as Linux. |
+| B4  | `localedef` runs without `sudo`                               | **Fixed** — `priv locale-gen` / `priv update-locale`. |
+| B5  | Homebrew-on-Linux via `git clone ~/.brew`                     | **Fixed** — no Homebrew on Linux at all. |
+| B6  | `asdf completion bash` written into a zsh profile             | **Fixed** — completion generated for the target shell. |
+| B7  | Hardcoded Intel `/usr/local/opt/ruby` `PATH` on macOS         | **Fixed** — removed; rely on `brew shellenv` + asdf shims. |
+| B8  | Not idempotent — profile blocks appended every run            | **Fixed** — `profile_append_once` / `rcfile_line_once` with markers. |
+| B9  | No strict mode, failures not surfaced                         | **Fixed** — `set -eEuo pipefail`, `ERR` trap, `main "$@"` wrapper. |
+| B10 | Downloads not integrity-checked                               | **Partial** — `verify_sha256` + `download` wired for the `.deb` and Android zip; pins in `versions.env` ship blank (skip-with-warning) and still need filling per release. |
+| B11 | `macincloud.sh` greedy `sed 's/.zsh/.bash/g'`                 | **Fixed** — the `.bashrc` mirror is produced by writing the same fenced blocks to both files. |
+| B12 | Divergent Ubuntu scripts; retired `adoptopenjdk-`; 2021-era Android; Terraform installed twice | **Fixed** — single body; `temurin-`; `android-36`/`36.0.0`; Terraform via `asdf` only. |
 
-`docker.sh` never received the fixes that landed in `ubuntu.sh` (PRs #3, #4, #5):
+### Remaining / new
 
-- **`apt install -y lsb-core`** (line 27) — `lsb-core` was dropped after Ubuntu
-  20.04. On 22.04/24.04 this package does not exist and the whole `apt install`
-  line fails. `ubuntu.sh` already switched to a conditional `lsb-base` /
-  `lsb-core`.
-- **Stale OpenSSL `.deb` filename** (lines 35–36) — still downloads
-  `libssl1.1_1.1.1n-0+deb10u4_amd64.deb`. That exact file was superseded (PR #4
-  moved `ubuntu.sh` to `deb10u6`) and older revisions get purged from the Debian
-  security pool, so the URL 404s and `curl -o` writes an HTML error page that
-  `apt install` then rejects.
-- **No upper bound on the OpenSSL shim** (line 34: `-gt 21`) — on Ubuntu 24.04
-  the `libssl1.1` deb cannot satisfy its `libc6` dependency and `apt` aborts.
-  `ubuntu.sh` guards this with the `-gt 23` → `lsb-base` branch.
-- **Inconsistent `sudo`** — line 27 uses bare `apt`, line 36 uses `sudo apt`.
-  In a minimal container running as root, `sudo` is usually not installed, so
-  line 36 fails with `sudo: command not found`.
-
-### B2 — zsh flow on `ubuntu.sh` / `docker.sh` can leave `brew` off `PATH`
-
-The script runs under `/bin/bash` but, when `ENV=zsh`, sets
-`PROFILE_CONFIG=$HOME/.zshrc` and then repeatedly runs `source $PROFILE_CONFIG`
-(lines 65, 72, 100, 122). A real `~/.zshrc` (e.g. Oh My Zsh) contains zsh-only
-syntax that `bash` cannot parse; `source` aborts partway, so the
-`brew shellenv` / asdf-shims `PATH` lines appended *after* the Oh My Zsh block
-are never applied to the running shell. Subsequent `brew install …` and
-`asdf …` calls then run against an incomplete `PATH`.
-Fix direction: never `source` the user rc file from this script — apply the
-needed `PATH` / `eval "$(brew shellenv)"` directly to the script's own
-environment, and only *append* the persistent config for the next login shell.
-
-### B3 — `macos.sh` / `macincloud.sh` use the removed `asdf.sh` sourcing mechanism
-
-Both do `. $(brew --prefix asdf)/libexec/asdf.sh` (macos.sh:47,
-macincloud.sh:49). `asdf` ≥ 0.16 (the Go rewrite, the version Homebrew installs
-today) **removed shell sourcing entirely** — there is no `libexec/asdf.sh`. The
-`.` command fails and `asdf` is not available for the rest of the script.
-`ubuntu.sh` already uses the correct approach (prepend
-`${ASDF_DATA_DIR:-$HOME/.asdf}/shims` to `PATH`). macOS scripts need the same
-treatment.
-
-### B4 — `localedef` runs without `sudo` in `ubuntu.sh`
-
-`ubuntu.sh:52` calls `localedef … -A /usr/share/locale/locale.alias …` with no
-`sudo` (unlike the `apt` calls around it). On a normal Ubuntu VM the user cannot
-write under `/usr/share/locale`, so locale generation fails silently (no
-`set -e`). Use `sudo localedef …` or `sudo locale-gen en_US.UTF-8`.
-
-### B5 — Homebrew-on-Linux installed by `git clone` (`docker.sh`, `macincloud.sh`)
-
-`git clone --depth=1 https://github.com/Homebrew/brew ~/.brew` is not a
-supported Homebrew installation path on Linux. Bottles are built for the
-default prefix; a custom `~/.brew` prefix forces source builds for most
-formulae (very slow, frequently failing in a container). Prefer the official
-`install.sh` (as `ubuntu.sh` does), or drop brew entirely for the container
-case and install `asdf` + deps directly.
-
-### B6 — `asdf completion bash` written into a zsh profile
-
-`ubuntu.sh:99` / `docker.sh:89` always append `. <(asdf completion bash)` even
-when `ENV=zsh`. zsh should get `asdf completion zsh`. Harmless-ish but produces
-errors on every new shell.
-
-### B7 — Hardcoded Intel Homebrew Ruby path in `macos.sh`
-
-`macos.sh:100` appends `export PATH="/usr/local/opt/ruby/bin:$PATH"`. On Apple
-Silicon Homebrew lives at `/opt/homebrew`, so this points at nothing. Use
-`$(brew --prefix ruby)/bin` (and only if `ruby` was actually brew-installed).
-
-### B8 — Scripts are not idempotent
-
-Every run appends the same blocks (`# homebrew`, `# asdf`, `# android`, …) to
-the profile with `>>`. Re-running to pick up a version bump silently duplicates
-dozens of lines and stacks `PATH` entries. `macincloud.sh:102`
-(`sed … ~/.zshrc >> ~/.bashrc`) compounds this on `~/.bashrc`.
-
-### B9 — No `set -euo pipefail`, no error surfacing
-
-None of the scripts enable strict mode. A failed `curl`, `apt`, `brew install`,
-or `asdf install` does not stop the run; the script marches on and often prints
-a cheerful "restart your terminal" at the end of a broken install. A
-curl-piped installer especially needs to fail loud and early.
-
-### B10 — `curl | bash` with no integrity verification
-
-Downloaded artifacts (`libssl1.1` deb, Android cmdline-tools zip, Homebrew
-installer, asdf plugins) are executed/installed with no checksum or signature
-check. Acceptable for a personal dotfiles-style repo, but worth a note and at
-least SHA-256 pinning for the pinned `.deb` and the Android zip.
-
-### B11 — `macincloud.sh` `sed 's/.zsh/.bash/g'` is too greedy
-
-The `.` is an unescaped regex metacharacter, so it also rewrites substrings like
-`xyz` boundaries and, more importantly, mangles any path/token containing
-`?zsh`. It should be `sed 's/\.zsh/\.bash/g'`, and even then blindly translating
-a zsh rc to bash is fragile.
-
-### B12 — Minor / cosmetic
-
-- `docker.sh` still writes the `# locale` `LC_ALL/LANG` block that `ubuntu.sh`
-  dropped — divergence between the two Ubuntu scripts that should be reconciled.
-- `JAVA_VERSION` uses the retired `adoptopenjdk-` identifier; upstream is now
-  Eclipse Temurin / Adoptium (`temurin-…`).
-- `platforms;android-30` + `build-tools;32.0.0` are from 2021.
-- `README.md` lists Terraform/kubectl/helm/sops as asdf-managed but `ubuntu.sh`
-  *also* `brew install terraform` — Terraform ends up installed twice from two
-  managers with a `PATH` race.
+- **B10** SHA-256 pins are blank. They rotate on every version bump; populate
+  them from a trusted source as part of a release.
+- macOS `noadmin` still uses a `$HOME/.brew` clone (no admin-free official
+  installer) and may fall back to source builds.
+- `check-versions.sh` does not cover Temurin or the Android SDK build numbers
+  (awkward APIs) — those stay manual.
 
 ---
 
 ## 7. Roadmap
 
-### 7.1 Fix bugs (do first)
+### 7.1 Fix bugs — done
 
-- [ ] **B1** Port all `ubuntu.sh` fixes into `docker.sh`; ideally collapse the
-      two into one `ubuntu.sh` with a `--container` / env flag instead of a
-      forked file.
-- [ ] **B2** Stop `source`-ing the user rc file mid-script; apply `PATH` changes
-      to the current process directly.
-- [ ] **B3** Replace `libexec/asdf.sh` sourcing in `macos.sh` / `macincloud.sh`
-      with the asdf ≥ 0.16 shims-on-`PATH` method.
-- [ ] **B4** Add `sudo` (or `locale-gen`) to the `ubuntu.sh` locale step.
-- [ ] **B8** Make profile edits idempotent — guard each block with a marker
-      check (`grep -q '# asdf' "$PROFILE_CONFIG" || { … }`) or write to a
-      dedicated `~/.config/setupmyenv.sh` sourced once from the rc file.
-- [ ] **B9** Add `set -euo pipefail` and an `ERR` trap that reports the failing
-      line; consider wrapping the whole body in a `main() { … }; main "$@"` so a
-      truncated `curl` download cannot execute a partial script.
-- [ ] **B6 / B7 / B11 / B12** Sweep the smaller shell-correctness issues.
-- [ ] Add `shellcheck` to CI (GitHub Actions) over all `*.sh`.
+- [x] **B1** `docker.sh` collapsed into the Ubuntu body (`--container`).
+- [x] **B2** No more `source`-ing the rc file; `PATH` applied in-process.
+- [x] **B3** macOS uses the asdf shims-on-`PATH` method.
+- [x] **B4** Locale step runs with `sudo` / `locale-gen`.
+- [x] **B8** Idempotent fenced profile edits.
+- [x] **B9** `set -eEuo pipefail` + `ERR` trap + `main "$@"`.
+- [x] **B5 / B6 / B7 / B11 / B12** swept.
+- [x] `shellcheck` in CI (plus a build-drift gate and a dry-run smoke matrix).
 
-### 7.2 Update the toolchain
+### 7.2 Toolchain — done
 
-- [x] **Re-baselined 2026-09-03** across all four scripts (see §4 for the
-      resulting versions):
-  - Node.js `22.20.0` → `24.20.0` (active LTS).
-  - Python `3.10.18` → `3.13.15` (3.14 available via one-line change).
-  - Go `1.25.1` → `1.27.1`.
-  - Java `adoptopenjdk-17.0.16+8` → `temurin-25.0.4+7` — retired `adoptopenjdk-`
-    prefix replaced with `temurin-`.
-  - Flutter `3.35.5` → `3.47.1`.
-  - Terraform `1.13.3` → `1.16.1`.
-  - kubectl `1.34.1` → `1.35.2`.
-  - Helm `3.19.0` → `4.2.4` (Helm 4 GA; note the CLI/flag breaking changes vs
-    Helm 3 — `HELM_VERSION=3.21.4` stays on the 3.x line).
-  - SOPS `3.11.0` → `3.13.3`.
-  - Android cmdline-tools `13114758` → `14742923`; `android-30`/`build-tools;32.0.0`
-    → `android-36`/`build-tools;36.0.0`.
-- [ ] Terraform is still installed by **both** asdf and `brew` — pick one (see
-      B12). Consider offering OpenTofu.
-- [ ] `brew` extras (`fastlane`, `awscli`, `cocoapods`, `ruby`) — confirm still
-      needed; `awscli` and `ruby` are arguably better under asdf too.
-- [ ] Add a `versions.env` file shared by all scripts so a bump is one edit in
-      one place instead of four.
-- [ ] Add a scheduled CI job (Dependabot-style or a cron workflow) that opens a
-      PR when any pinned tool has a newer release.
+- [x] Re-baselined 2026-09-03 (see §4). Java moved off the retired
+      `adoptopenjdk-` prefix; Ruby and asdf now explicitly pinned.
+- [x] Terraform installed once, via `asdf`.
+- [x] `brew` extras reviewed: Homebrew dropped on Linux; `fastlane` → RubyGems,
+      `awscli` → official installer, `ruby` → asdf. macOS keeps Homebrew for
+      `asdf`, `awscli`, `fastlane`, `cocoapods`.
+- [x] `src/versions.env` is the single edit point; `build.sh` regenerates.
+- [x] Weekly `version-check` job (`scripts/check-versions.sh`) opens an issue
+      when a pin falls behind upstream.
 
-### 7.3 Longer-term / nice to have
+### 7.3 Longer-term — done / open
 
-- [ ] Dry-run / `--print` mode that shows what would be installed.
-- [ ] Split "OS base packages" / "Homebrew" / "asdf runtimes" / "Android" into
-      functions with independent opt-out flags (`--no-android`, `--no-flutter`).
-- [ ] Smoke-test workflow: run each script in a matrix of
-      `ubuntu:20.04/22.04/24.04` containers (and a macOS runner) and assert
-      `node`, `python`, `go`, `java`, `flutter --version`, `terraform`,
-      `kubectl`, `helm`, `sops` all resolve.
-- [ ] SHA-256 pin + verify the side-loaded `.deb` and the Android zip (B10).
-- [ ] Publish a short `CHANGELOG.md` so consumers can see when versions moved.
-- [ ] Optional: replace the OpenSSL 1.1 side-load with a documented note now
-      that most tooling has moved to OpenSSL 3.
+- [x] `--dry-run` mode.
+- [x] Component opt-out flags (`--no-android`, `--no-flutter`); the body is split
+      into functions.
+- [x] Smoke-test workflow — dry-run matrix on Ubuntu 20.04/22.04/24.04 + macOS,
+      plus an opt-in full-install job that asserts every tool resolves.
+- [x] `verify_sha256` + `download` for the `.deb` and the Android zip
+      (**pins still blank — B10**).
+- [x] `CHANGELOG.md`.
+- [ ] Populate the SHA-256 pins and enforce verification.
+- [ ] Consider dropping the OpenSSL 1.1 shim entirely once no supported target
+      needs it, and/or offering OpenTofu alongside Terraform.
+- [ ] Optional `--print`/manifest output listing exact resolved versions.

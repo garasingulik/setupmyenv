@@ -3,100 +3,96 @@
 One-command bootstrap scripts that turn a **fresh machine, cloud VM, or
 container** into a ready-to-use software-development box.
 
-Each script is a single file meant to be piped straight from GitHub into your
-shell. It installs the OS build dependencies, [Homebrew](https://brew.sh),
+Each script is a single self-contained file meant to be piped straight from
+GitHub into your shell. It installs the OS build dependencies,
 [`asdf`](https://asdf-vm.com), a pinned polyglot toolchain (Node.js, Python, Go,
-Java, Flutter, Terraform, kubectl, Helm, SOPS) and the Android command-line SDK,
-then wires everything into your shell profile.
+Java, Flutter, Terraform, kubectl, Helm, SOPS, Ruby) and the Android
+command-line SDK, then wires everything into your shell profile.
 
-> See [`SPEC.md`](./SPEC.md) for the full specification, design notes, known
-> issues, and roadmap.
+> Full specification, design notes, bug list and roadmap: [`SPEC.md`](./SPEC.md).
+> Version history: [`CHANGELOG.md`](./CHANGELOG.md).
 
 ## Which script do I run?
 
-| Script          | Use it on                                                        | Default shell |
-|-----------------|-----------------------------------------------------------------|---------------|
-| `ubuntu.sh`     | Ubuntu 20.04 / 22.04 / 24.04 — desktop or cloud VM (has `sudo`) | bash or zsh   |
-| `macos.sh`      | A local macOS workstation (admin user)                          | zsh           |
-| `macincloud.sh` | Hosted macOS without admin rights (e.g. MacinCloud) + GitLab CI | zsh           |
-| `docker.sh`     | An Ubuntu base image, building a container as `root`            | bash          |
+| Script          | Target                                                          | Mode          |
+|-----------------|----------------------------------------------------------------|---------------|
+| `ubuntu.sh`     | Ubuntu 20.04 / 22.04 / 24.04 — desktop or cloud VM (has `sudo`) | `vm`          |
+| `docker.sh`     | An Ubuntu base image, building a container as `root`            | `container`   |
+| `macos.sh`      | A local macOS workstation (admin user)                          | `workstation` |
+| `macincloud.sh` | Hosted macOS without admin rights (e.g. MacinCloud) + GitLab CI | `noadmin`     |
 
-## Prerequisites
+`docker.sh` is `ubuntu.sh` pre-set to `--container`; `macincloud.sh` is
+`macos.sh` pre-set to `--no-admin`. Any script also accepts the flag explicitly.
 
-**Ubuntu**
-- A user with `sudo` (not needed for `docker.sh`, which runs as `root`).
-- `curl` and `bash` (present on stock Ubuntu).
-- To use the zsh flow: install zsh and, optionally,
-  [Oh My Zsh](https://ohmyz.sh), then start a zsh session before running.
-  ```bash
-  sudo apt install -y zsh
-  sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
-  ```
-
-**macOS**
-- Xcode and the Command Line Tools, with the license accepted:
-  ```zsh
-  xcode-select --install
-  sudo xcodebuild -license accept
-  ```
-
-## Usage
+## Quick start
 
 ### Ubuntu
 
 ```bash
-# bash login shell
-ENV=bash /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
+# configure ~/.profile (bash)
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh | bash
 
-# zsh login shell
+# configure ~/.zshrc (zsh)
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh | bash -s -- --shell zsh
+```
+
+The legacy form still works:
+
+```bash
 ENV=zsh /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/ubuntu.sh)"
 ```
 
-`ENV` only decides which profile file gets the configuration
-(`~/.profile` for bash, `~/.zshrc` for zsh). The script itself runs under bash.
-
 ### macOS
 
-```zsh
-/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh)"
+```bash
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macos.sh | bash
 ```
 
-### Hosted macOS (MacinCloud)
+Install the Xcode Command Line Tools first:
 
-No admin rights required — Homebrew is installed into `~/.brew`. The script also
-mirrors the generated `~/.zshrc` into `~/.bashrc` so a GitLab runner using a
-bash shell picks up the same toolchain.
+```bash
+xcode-select --install && sudo xcodebuild -license accept
+```
 
-```zsh
-/bin/zsh -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macincloud.sh)"
+### Hosted macOS without admin (MacinCloud + GitLab runner)
+
+Homebrew goes into `$HOME/.brew`; the same configuration is written to both
+`~/.zshrc` and `~/.bashrc` so a bash-based runner picks up the toolchain too.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/macincloud.sh | bash
 ```
 
 ### Container image
 
-Run inside your `Dockerfile` while building on top of an Ubuntu base image:
-
 ```dockerfile
 FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y curl ca-certificates
-RUN /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/docker.sh)"
+RUN curl -fsSL https://raw.githubusercontent.com/garasingulik/setupmyenv/main/docker.sh | bash
 ```
 
-## After it finishes
+## Options
 
-Restart your terminal (or `source` your profile) so the new `PATH`, `asdf`
-shims, `JAVA_HOME`, `ANDROID_HOME`, `GPG_TTY` and locale settings take effect:
+Pass options after `bash -s --` when piping, or directly when running a local
+copy.
+
+| Flag                | Effect                                                        |
+|---------------------|-------------------------------------------------------------|
+| `--dry-run`         | Print every step, change nothing (`DRY_RUN=1` also works)    |
+| `--no-android`      | Skip the Android SDK / command-line tools                    |
+| `--no-flutter`      | Skip Flutter                                                 |
+| `--shell bash\|zsh` | Which rc file to configure (default: auto from `$SHELL`)     |
+| `--container`       | Container mode: run as root, no `sudo`, no Homebrew          |
+| `--no-admin`        | macOS without admin (Homebrew into `$HOME/.brew`)            |
+| `-h`, `--help`      | Usage                                                        |
+
+Environment: `DRY_RUN=1`, `ENV=zsh|bash` (legacy alias for `--shell`),
+`SETUPMYENV_MODE=…`, `SKIP_CHECKSUM=1`.
+
+**Preview a run before committing to it:**
 
 ```bash
-exec $SHELL -l
-```
-
-Verify:
-
-```bash
-asdf current
-node --version && python --version && go version
-java -version && flutter --version
-terraform version && kubectl version --client && helm version && sops --version
+curl -fsSL .../ubuntu.sh | bash -s -- --dry-run
 ```
 
 ## What gets installed
@@ -106,57 +102,95 @@ terraform version && kubectl version --client && helm version && sops --version
    package is side-loaded for tools still linked against OpenSSL 1.1.
 2. Locale (`en_US.UTF-8`) and `GPG_TTY` (so GPG-signed git commits can prompt on
    the tty).
-3. Homebrew / Linuxbrew.
-4. `asdf`, plus a few tools kept on Homebrew: `fastlane`, `awscli`, `ruby`
-   (and on macOS `cocoapods`).
-5. `asdf` runtimes (versions below).
-6. `legacy_version_file = yes` so `asdf` honours a project's `.nvmrc` /
-   `.python-version` when no `.tool-versions` is present.
-7. Android command-line tools + `platform-tools`, a platform, and build-tools,
-   with all SDK licenses accepted.
+3. `asdf` — from its GitHub release binary on Linux, from Homebrew on macOS.
+4. `asdf` runtimes (table below), with `legacy_version_file = yes` so a
+   project's `.nvmrc` / `.python-version` is honoured when there is no
+   `.tool-versions`.
+5. `fastlane` (RubyGems) and `awscli` (official installer on Linux, Homebrew on
+   macOS). macOS also gets `cocoapods`.
+6. Android command-line tools + `platform-tools`, one platform, and build-tools,
+   with SDK licenses accepted (unless `--no-android`).
+
+Homebrew is **not** used on Linux any more.
 
 ### Pinned toolchain
 
-Versions live in clearly labelled variables at the top of each script — edit
-them there before running, or bump and re-run to upgrade.
+Single source of truth: [`src/versions.env`](./src/versions.env). Run
+`./build.sh` after editing.
 
-| Tool                  | Version                     |
-|-----------------------|-----------------------------|
-| Node.js               | `24.20.0` (active LTS)      |
-| Python                | `3.13.15`                   |
-| Go                    | `1.27.1`                    |
-| Java (Temurin)        | `temurin-25.0.4+7` (LTS)    |
-| Flutter               | `3.47.1-stable`             |
-| Terraform             | `1.16.1`                    |
-| kubectl               | `1.35.2`                    |
-| Helm                  | `4.2.4`                     |
-| SOPS                  | `3.13.3`                    |
-| Android cmdline-tools | build `14742923`            |
-| Android platform      | `android-36`                |
-| Android build-tools   | `36.0.0`                    |
+| Tool                  | Version              |
+|-----------------------|----------------------|
+| Node.js               | `24.20.0` (LTS)      |
+| Python                | `3.13.15`            |
+| Go                    | `1.27.1`             |
+| Java (Temurin)        | `temurin-25.0.4+7` (LTS) |
+| Flutter               | `3.47.2-stable`      |
+| Terraform             | `1.16.1`             |
+| kubectl               | `1.37.0`             |
+| Helm                  | `4.2.4` (Helm 4 GA)  |
+| SOPS                  | `3.13.3`             |
+| Ruby                  | `3.4.10`             |
+| asdf                  | `0.20.0`             |
+| Android cmdline-tools | build `14742923`     |
+| Android platform / build-tools | `android-36` / `36.0.0` |
 
 Notes:
-- **Python** is pinned to the latest `3.13` patch (broadest ecosystem support).
-  For `3.14`, set `PYTHON_VERSION=3.14.7`.
-- **Helm 4** is the current GA line and has CLI/flag changes versus Helm 3. If a
-  pipeline still needs Helm 3, set `HELM_VERSION=3.21.4`.
-- **kubectl** is kept close to common managed-cluster versions; adjust to match
-  your cluster (skew policy is ±1 minor).
+- **Python** — latest `3.13` patch (widest ecosystem support). For `3.14`, set
+  `PYTHON_VERSION=3.14.x`.
+- **Helm 4** is GA and has CLI/flag changes vs Helm 3. For a pipeline that still
+  needs Helm 3, set `HELM_VERSION=3.21.4`.
+- **kubectl** tracks upstream stable; keep it within ±1 minor of your clusters
+  if that matters to you.
 
-## Customising
+## After it finishes
 
-- **Change versions:** edit the `*_VERSION` variables at the top of the script.
-- **Add a tool:** call the `tools_install` helper, e.g.
-  `tools_install <asdf-plugin> <version>`.
-- **Skip Android:** comment out the "android sdk and cli setup" block and the
-  `sdkmanager` lines.
+```bash
+exec "$SHELL" -l          # reload PATH, asdf shims, JAVA_HOME, ANDROID_HOME, …
+```
+
+Verify:
+
+```bash
+asdf current
+node --version && python --version && go version && java -version
+flutter --version && terraform version && kubectl version --client
+helm version && sops --version
+```
+
+Re-running is safe: profile edits are fenced with `# >>> setupmyenv:<block> >>>`
+markers and skipped if already present.
+
+## Development
+
+The root scripts are **generated**. Do not edit them directly.
+
+```
+src/versions.env      # every pinned version
+src/lib.sh            # shared: logging, dry-run, idempotent profile edits,
+                      #         strict mode, checksum verification, asdf helpers
+src/ubuntu.body.sh    # Ubuntu logic  (modes: vm, container)
+src/macos.body.sh     # macOS logic   (modes: workstation, noadmin)
+build.sh              # inlines the above into ./ubuntu.sh ./docker.sh
+                      #                        ./macos.sh ./macincloud.sh
+scripts/check-versions.sh   # compare versions.env against upstream "latest"
+```
+
+```bash
+# edit src/…, then:
+./build.sh              # regenerate the four root scripts
+./build.sh --check      # CI gate: fail if the committed scripts are stale
+```
+
+CI (`.github/workflows/ci.yml`) runs shellcheck, the drift gate, a `--dry-run`
+smoke matrix on Ubuntu 20.04/22.04/24.04 and macOS, an opt-in full install, and
+a weekly `version-check` that opens an issue when a pin falls behind.
 
 ## Caveats
 
-- The scripts **append** to your profile every run and are **not idempotent** —
-  re-running duplicates the config blocks. Prefer a fresh machine, or clean the
-  duplicated sections afterward.
-- Downloaded artifacts are not checksum-verified.
-- `docker.sh` currently lags `ubuntu.sh`'s fixes for Ubuntu 22.04 / 24.04.
+- SHA-256 checksums for the two directly-downloaded artifacts (the `libssl1.1`
+  `.deb` and the Android zip) are wired but ship blank — verification is skipped
+  with a warning until they are filled in per release.
+- macOS `--no-admin` still clones Homebrew into `$HOME/.brew` (no admin-free
+  official installer exists) and may fall back to source builds.
 
-See [`SPEC.md`](./SPEC.md) §6–§7 for the tracked bug list and roadmap.
+See [`SPEC.md`](./SPEC.md) §6–§7 for the tracked issues and remaining roadmap.
