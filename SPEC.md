@@ -83,7 +83,7 @@ Source: [`src/versions.env`](./src/versions.env). Last re-baselined 2026-09-03.
 | Node.js   | `24.20.0` (active LTS)     |
 | Python    | `3.13.15`                  |
 | Go        | `1.27.1`                   |
-| Java      | `temurin-25.0.4+7` (LTS)   |
+| Java      | `temurin-25.0.4+7.0.LTS`   |
 | Flutter   | `3.47.2-stable`            |
 | Terraform | `1.16.1`                   |
 | kubectl   | `1.37.0`                   |
