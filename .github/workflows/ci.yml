@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Generated scripts are in sync with src/
-        run: ./build.sh --check
+        run: bash build.sh --check
 
   smoke-dryrun-linux:
     needs: [lint, build-drift]
@@ -108,7 +108,7 @@ jobs:
       - name: Compare pinned versions with upstream
         id: check
         run: |
-          scripts/check-versions.sh | tee /tmp/report.txt
+          bash scripts/check-versions.sh | tee /tmp/report.txt
           if grep -q 'OUTDATED' /tmp/report.txt; then echo "outdated=1" >> "$GITHUB_OUTPUT"; fi
       - name: Open / update tracking issue
         if: steps.check.outputs.outdated == '1'
