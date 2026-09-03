@@ -3,18 +3,18 @@ export DEBIAN_FRONTEND=noninteractive
 export PROFILE_CONFIG="$HOME/.profile"
 
 # tooling version
-NODEJS_VERSION=22.20.0
-PYTHON_VERSION=3.10.18
-GOLANG_VERSION=1.25.1
-JAVA_VERSION=adoptopenjdk-17.0.16+8
-FLUTTER_VERSION=3.35.5-stable
-TERRAFORM_VERSION=1.13.3
-KUBECTL_VERSION=1.34.1
-HELM_VERSION=3.19.0
-SOPS_VERSION=3.11.0
+NODEJS_VERSION=24.20.0
+PYTHON_VERSION=3.13.15
+GOLANG_VERSION=1.27.1
+JAVA_VERSION=temurin-25.0.4+7
+FLUTTER_VERSION=3.47.1-stable
+TERRAFORM_VERSION=1.16.1
+KUBECTL_VERSION=1.35.2
+HELM_VERSION=4.2.4
+SOPS_VERSION=3.13.3
 
 # android cli version
-ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-linux-13114758_latest.zip
+ANDROID_CLI=https://dl.google.com/android/repository/commandlinetools-linux-14742923_latest.zip
 
 # helper script to install asdf plugin and set global tooling version
 function tools_install() {
@@ -113,7 +113,7 @@ source $PROFILE_CONFIG
 
 # android sdkmanager basic tools installation
 yes | sdkmanager --licenses
-sdkmanager --install "platform-tools" "platforms;android-30" "build-tools;32.0.0"
+sdkmanager --install "platform-tools" "platforms;android-36" "build-tools;36.0.0"
 
 # prompt for restart the session
 echo ""
