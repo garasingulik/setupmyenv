@@ -24,6 +24,7 @@ step() { printf '\n%s--- %s ---%s\n' "$_c_dim" "$*" "$_c_reset" >&2; }
 # --------------------------------------------------------------------------
 _on_err() {
   local ec=$? line=${1:-?}
+  trap - ERR   # report once, even though set -E would re-enter
   err "aborted at line ${line} (exit ${ec})"
   err "nothing was rolled back; fix the cause and re-run, or use --dry-run to preview"
   exit "$ec"
@@ -316,7 +317,9 @@ asdf_install_tool() {
   if asdf list "$plugin" 2>/dev/null | tr -d ' *' | grep -qxF "$version"; then
     log "asdf: $plugin $version already installed"
   else
-    active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+    # `asdf current` exits non-zero (1 or 126) when the plugin has no version
+    # configured yet — never let that abort us; just skip the nicer message.
+    active="$(_asdf_active "$plugin")"
     if [ -n "$active" ] && [ "$active" != "$version" ]; then
       step "asdf: upgrade $plugin $active -> $version"
     else
@@ -326,8 +329,14 @@ asdf_install_tool() {
     asdf install "$plugin" "$version"
   fi
   asdf set -u "$plugin" "$version"
-  active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+  active="$(_asdf_active "$plugin")"
   [ -n "$active" ] && log "asdf: $plugin now $active"
+}
+
+# _asdf_active PLUGIN -> the active version, or "" if none / not resolvable.
+_asdf_active() {
+  asdf current "$1" 2>/dev/null \
+    | awk -v p="$1" '$1==p && $2 ~ /[0-9]/ {print $2; exit}' || true
 }
 
 # Arm the error trap now that _on_err is defined.

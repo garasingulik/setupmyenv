@@ -44,8 +44,11 @@ ANDROID_BUILD_TOOLS=36.0.0
 # ---------------------------------------------------------------------------
 # OpenSSL 1.1 backward-compat shim (Ubuntu <= 22.04 only; see SPEC.md B10)
 # ---------------------------------------------------------------------------
+# security.debian.org only keeps the current version in its pool, so a pinned
+# filename 404s once it is superseded. archive.debian.org is frozen (buster is
+# EOL) and keeps every historical .deb, so pin against it.
 LIBSSL1_DEB=libssl1.1_1.1.1n-0+deb10u6_amd64.deb
-LIBSSL1_DEB_BASEURL=http://security.debian.org/debian-security/pool/updates/main/o/openssl
+LIBSSL1_DEB_BASEURL=https://archive.debian.org/debian-security/pool/updates/main/o/openssl
 
 # ---------------------------------------------------------------------------
 # Optional SHA-256 checksums for directly-downloaded artifacts.
@@ -53,7 +56,7 @@ LIBSSL1_DEB_BASEURL=http://security.debian.org/debian-security/pool/updates/main
 # These rotate on every version bump above — update them together.
 # ---------------------------------------------------------------------------
 ANDROID_CMDLINE_TOOLS_SHA256=
-LIBSSL1_DEB_SHA256=
+LIBSSL1_DEB_SHA256=9ee380d4d7b9a9848bd7497bbe03c91f65bd25ae4ad12b5466bed60a06029727
 # --- end versions.env ---
 # --- begin lib.sh ---
 # shellcheck shell=bash
@@ -82,6 +85,7 @@ step() { printf '\n%s--- %s ---%s\n' "$_c_dim" "$*" "$_c_reset" >&2; }
 # --------------------------------------------------------------------------
 _on_err() {
   local ec=$? line=${1:-?}
+  trap - ERR   # report once, even though set -E would re-enter
   err "aborted at line ${line} (exit ${ec})"
   err "nothing was rolled back; fix the cause and re-run, or use --dry-run to preview"
   exit "$ec"
@@ -374,7 +378,9 @@ asdf_install_tool() {
   if asdf list "$plugin" 2>/dev/null | tr -d ' *' | grep -qxF "$version"; then
     log "asdf: $plugin $version already installed"
   else
-    active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+    # `asdf current` exits non-zero (1 or 126) when the plugin has no version
+    # configured yet — never let that abort us; just skip the nicer message.
+    active="$(_asdf_active "$plugin")"
     if [ -n "$active" ] && [ "$active" != "$version" ]; then
       step "asdf: upgrade $plugin $active -> $version"
     else
@@ -384,8 +390,14 @@ asdf_install_tool() {
     asdf install "$plugin" "$version"
   fi
   asdf set -u "$plugin" "$version"
-  active="$(asdf current "$plugin" 2>/dev/null | awk -v p="$plugin" '$1==p{print $2; exit}')"
+  active="$(_asdf_active "$plugin")"
   [ -n "$active" ] && log "asdf: $plugin now $active"
+}
+
+# _asdf_active PLUGIN -> the active version, or "" if none / not resolvable.
+_asdf_active() {
+  asdf current "$1" 2>/dev/null \
+    | awk -v p="$1" '$1==p && $2 ~ /[0-9]/ {print $2; exit}' || true
 }
 
 # Arm the error trap now that _on_err is defined.
@@ -480,10 +492,21 @@ install_asdf() {
     else
       curl -fsSL --retry 3 --retry-delay 2 -o "/tmp/${tgz}" "$url"
       tar -xzf "/tmp/${tgz}" -C "$HOME/.local/bin" asdf
+      chmod +x "$HOME/.local/bin/asdf"
       rm -f "/tmp/${tgz}"
     fi
   fi
   ensure_asdf_env
+  if ! is_dry_run; then
+    local ec=0
+    "$HOME/.local/bin/asdf" --version >/dev/null 2>&1 || ec=$?
+    case "$ec" in
+      0) : ;;
+      126) die "asdf will not execute (126). ~/.local/bin appears to be on a noexec mount ($HOME). Re-run with HOME set to a normal path." ;;
+      127) die "asdf not found after install — extraction into ~/.local/bin failed." ;;
+      *)   die "asdf installed but 'asdf --version' failed (exit $ec)." ;;
+    esac
+  fi
 }
 
 install_runtimes() {

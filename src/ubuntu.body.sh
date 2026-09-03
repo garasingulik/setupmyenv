@@ -90,10 +90,21 @@ install_asdf() {
     else
       curl -fsSL --retry 3 --retry-delay 2 -o "/tmp/${tgz}" "$url"
       tar -xzf "/tmp/${tgz}" -C "$HOME/.local/bin" asdf
+      chmod +x "$HOME/.local/bin/asdf"
       rm -f "/tmp/${tgz}"
     fi
   fi
   ensure_asdf_env
+  if ! is_dry_run; then
+    local ec=0
+    "$HOME/.local/bin/asdf" --version >/dev/null 2>&1 || ec=$?
+    case "$ec" in
+      0) : ;;
+      126) die "asdf will not execute (126). ~/.local/bin appears to be on a noexec mount ($HOME). Re-run with HOME set to a normal path." ;;
+      127) die "asdf not found after install — extraction into ~/.local/bin failed." ;;
+      *)   die "asdf installed but 'asdf --version' failed (exit $ec)." ;;
+    esac
+  fi
 }
 
 install_runtimes() {

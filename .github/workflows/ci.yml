@@ -74,12 +74,16 @@ jobs:
         image: ["ubuntu:22.04", "ubuntu:24.04"]
     container:
       image: ${{ matrix.image }}
+    # Pin HOME to a plain path: in container jobs GitHub sets HOME=/github/home
+    # (a bind mount) which some setups mount noexec, breaking the asdf binary.
+    env:
+      HOME: /root
     steps:
       - uses: actions/checkout@v4
       - name: Prereqs
         run: |
           apt-get update -qq
-          apt-get install -y -qq bash curl ca-certificates sudo
+          apt-get install -y -qq bash curl ca-certificates sudo git
       - name: Install toolchain (no Android — no emulator in CI)
         run: bash ubuntu.sh --container --no-android
       - name: Verify
