@@ -419,6 +419,7 @@ apt_base() {
     ca-certificates curl wget git make jq unzip xz-utils gnupg locales pkg-config \
     build-essential llvm clang cmake ninja-build \
     libssl-dev zlib1g-dev libbz2-dev libreadline-dev libsqlite3-dev libncursesw5-dev \
+    libyaml-dev libgmp-dev libgdbm-dev \
     tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev libgtk-3-dev \
     apt-transport-https software-properties-common
 }
